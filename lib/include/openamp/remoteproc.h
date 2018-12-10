@@ -361,6 +361,21 @@ struct fw_rsc_vendor {
 	uint32_t len;
 } METAL_PACKED_END;
 
+/** @brief Configuration space declaration ((if VIRTIO_RPMSG_F_BUFSZ)) */
+METAL_PACKED_BEGIN
+struct fw_rsc_config {
+	/** The host to remote buffer size */
+	uint32_t h2r_buf_size;
+
+	/** The remote to host buffer size */
+	uint32_t r2h_buf_size;
+
+	/** Reserve for the future use */
+	uint32_t reserved[14];
+
+	/** Put the customize config here */
+} METAL_PACKED_END;
+
 struct loader_ops;
 struct image_store_ops;
 struct remoteproc_ops;
