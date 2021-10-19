@@ -52,6 +52,7 @@ struct rpmsg_device;
 typedef int (*rpmsg_ept_cb)(struct rpmsg_endpoint *ept, void *data,
 			    size_t len, uint32_t src, void *priv);
 typedef void (*rpmsg_ept_release_cb)(struct rpmsg_endpoint *ept);
+typedef void (*rpmsg_ns_bound_cb)(struct rpmsg_endpoint *ept);
 typedef void (*rpmsg_ns_unbind_cb)(struct rpmsg_endpoint *ept);
 typedef void (*rpmsg_ns_bind_cb)(struct rpmsg_device *rdev,
 				 const char *name, uint32_t dest);
@@ -86,6 +87,9 @@ struct rpmsg_endpoint {
 	 * use, for now, only allow RPMSG_SUCCESS as return value
 	 */
 	rpmsg_ept_cb cb;
+
+	/** Endpoint service bound callback, called when remote ept address is received */
+	rpmsg_ns_bound_cb ns_bound_cb;
 
 	/** Endpoint service unbind callback, called when remote ept is destroyed */
 	rpmsg_ns_unbind_cb ns_unbind_cb;
