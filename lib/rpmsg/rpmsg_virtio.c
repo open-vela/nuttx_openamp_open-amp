@@ -546,17 +546,26 @@ static void rpmsg_virtio_rx_callback(struct virtqueue *vq)
 	struct virtio_device *vdev = vq->vq_dev;
 	struct rpmsg_virtio_device *rvdev = vdev->priv;
 	struct rpmsg_device *rdev = &rvdev->rdev;
+	struct rpmsg_hdr *next_hdr = NULL;
 	struct rpmsg_endpoint *ept;
 	struct rpmsg_hdr *rp_hdr;
+	uint32_t next_len;
+	uint16_t next_idx;
 	uint32_t len;
 	uint16_t idx;
 	int status;
 
 	while (1) {
 		/* Process the received data from remote node */
-		metal_mutex_acquire(&rdev->lock);
-		rp_hdr = rpmsg_virtio_get_rx_buffer(rvdev, &len, &idx);
-		metal_mutex_release(&rdev->lock);
+		if (!next_hdr) {
+			metal_mutex_acquire(&rdev->lock);
+			rp_hdr = rpmsg_virtio_get_rx_buffer(rvdev, &len, &idx);
+			metal_mutex_release(&rdev->lock);
+		} else {
+			rp_hdr = next_hdr;
+			len = next_len;
+			idx = next_idx;
+		}
 
 		/* No more filled rx buffers */
 		if (!rp_hdr)
@@ -588,6 +597,7 @@ static void rpmsg_virtio_rx_callback(struct virtqueue *vq)
 
 		metal_mutex_acquire(&rdev->lock);
 		rpmsg_ept_decref(ept);
+		next_hdr = rpmsg_virtio_get_rx_buffer(rvdev, &next_len, &next_idx);
 		if (rpmsg_virtio_buf_held_dec_test(rp_hdr))
 			rpmsg_virtio_release_rx_buffer_nolock(rvdev, rp_hdr);
 		metal_mutex_release(&rdev->lock);
