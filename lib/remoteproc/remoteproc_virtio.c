@@ -40,6 +40,7 @@ static int rproc_virtio_create_virtqueue(struct virtio_device *vdev,
 {
 	struct virtio_vring_info *vring_info;
 	struct vring_alloc_info *vring_alloc;
+	struct remoteproc_virtio *rpvdev;
 	int ret;
 	(void)flags;
 
@@ -67,6 +68,15 @@ static int rproc_virtio_create_virtqueue(struct virtio_device *vdev,
 			       vdev->func->notify, vring_info->vq);
 	if (ret)
 		return ret;
+
+	/*
+	 * If vq->shm_io is uninitialized, init it here. Now only rpmsg device
+	 * init the shm_io specially instead of by transport layer.
+	 */
+	if (!vring_info->vq->shm_io) {
+		rpvdev = metal_container_of(vdev, struct remoteproc_virtio, vdev);
+		virtqueue_set_shmem_io(vring_info->vq, rpvdev->shm_io);
+	}
 
 	return 0;
 }
@@ -339,6 +349,20 @@ rproc_virtio_create_vdev(unsigned int role, unsigned int notifyid,
 err:
 	metal_free_memory(rpvdev);
 	return NULL;
+}
+
+int rproc_virtio_set_shm_io(struct virtio_device *vdev,
+			    struct metal_io_region *shm_io)
+{
+	struct remoteproc_virtio *rpvdev;
+
+	if (!vdev || !shm_io)
+		return -RPROC_EINVAL;
+
+	rpvdev = metal_container_of(vdev, struct remoteproc_virtio, vdev);
+	rpvdev->shm_io = shm_io;
+
+	return 0;
 }
 
 void rproc_virtio_remove_vdev(struct virtio_device *vdev)
