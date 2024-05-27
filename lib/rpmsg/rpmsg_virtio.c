@@ -387,6 +387,8 @@ static void *rpmsg_virtio_get_tx_payload_buffer(struct rpmsg_device *rdev,
 		}
 	}
 
+	metal_assert(!wait || rp_hdr != NULL);
+
 	if (!rp_hdr)
 		return NULL;
 
