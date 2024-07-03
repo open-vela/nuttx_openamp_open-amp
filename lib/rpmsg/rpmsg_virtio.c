@@ -9,6 +9,8 @@
  */
 
 #include <metal/alloc.h>
+#include <metal/sleep.h>
+#include <metal/sys.h>
 #include <metal/utilities.h>
 #include <openamp/rpmsg_virtio.h>
 #include <openamp/remoteproc.h>
@@ -265,8 +267,7 @@ static int rpmsg_virtio_wait_remote_ready(struct rpmsg_virtio_device *rvdev)
 		} else if (status & VIRTIO_CONFIG_STATUS_DRIVER_OK) {
 			return 0;
 		}
-		/* TODO: clarify metal_sleep_usec usage*/
-		metal_sleep_usec(RPMSG_TICKS_PER_INTERVAL);
+		metal_yield();
 	}
 }
 
