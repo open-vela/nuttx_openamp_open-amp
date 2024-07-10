@@ -613,7 +613,7 @@ static void rpmsg_virtio_rx_callback(struct virtqueue *vq)
 		}
 	}
 
-	if (release)
+	if (release && VIRTIO_ENABLED(VQ_RX_EMPTY_NOTIFY))
 		/* tell peer we return some rx buffer */
 		virtqueue_kick(rvdev->rvq);
 
