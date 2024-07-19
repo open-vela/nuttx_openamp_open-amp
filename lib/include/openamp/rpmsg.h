@@ -41,6 +41,7 @@ extern "C" {
 
 /* Error macros. */
 #define RPMSG_SUCCESS			0
+#define RPMSG_SUCCESS_BUFFER_RETURNED	-1000
 #define RPMSG_ERROR_BASE		-2000
 #define RPMSG_ERR_NO_MEM		(RPMSG_ERROR_BASE - 1)
 #define RPMSG_ERR_NO_BUFF		(RPMSG_ERROR_BASE - 2)
