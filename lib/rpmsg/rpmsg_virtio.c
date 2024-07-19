@@ -556,7 +556,7 @@ static void rpmsg_virtio_rx_callback(struct virtqueue *vq)
 	uint16_t next_idx;
 	uint32_t len;
 	uint16_t idx;
-	int status;
+	int status = RPMSG_SUCCESS;
 
 	while (1) {
 		/* Process the received data from remote node */
@@ -597,15 +597,18 @@ static void rpmsg_virtio_rx_callback(struct virtqueue *vq)
 			status = ept->cb(ept, RPMSG_LOCATE_DATA(rp_hdr),
 					 rp_hdr->len, rp_hdr->src, ept->priv);
 
-			RPMSG_ASSERT(status >= 0,
+			RPMSG_ASSERT(status >= 0 ||
+				     status == RPMSG_SUCCESS_BUFFER_RETURNED,
 				     "unexpected callback status\r\n");
 		}
 
 		metal_mutex_acquire(&rdev->lock);
 		rpmsg_ept_decref(ept);
 		next_hdr = rpmsg_virtio_get_rx_buffer(rvdev, &next_len, &next_idx);
-		if (rpmsg_virtio_buf_held_dec_test(rp_hdr))
+		if (status != RPMSG_SUCCESS_BUFFER_RETURNED &&
+		    rpmsg_virtio_buf_held_dec_test(rp_hdr))
 			rpmsg_virtio_release_rx_buffer_nolock(rvdev, rp_hdr);
+
 		metal_mutex_release(&rdev->lock);
 	}
 }
@@ -633,26 +636,30 @@ static int rpmsg_virtio_ns_callback(struct rpmsg_endpoint *ept, void *data,
 							       rdev);
 	struct metal_io_region *io = rvdev->shbuf_io;
 	struct rpmsg_endpoint *_ept;
-	struct rpmsg_ns_msg *ns_msg;
+	struct rpmsg_ns_msg ns_msg;
 	uint32_t dest;
 	bool ept_to_release;
-	char name[RPMSG_NAME_SIZE];
 
 	(void)ept;
 	(void)src;
 
-	ns_msg = data;
-	if (len != sizeof(*ns_msg))
+	if (len != sizeof(ns_msg))
 		/* Returns as the message is corrupted */
 		return RPMSG_SUCCESS;
-	metal_io_block_read(io,
-			    metal_io_virt_to_offset(io, ns_msg->name),
-			    &name, sizeof(name));
-	dest = ns_msg->addr;
+
+	/*
+	 * copy buffer to local ns_msg and release the rx buffer early to
+	 * improve the buffer utilization.
+	 */
+	metal_io_block_read(io, metal_io_virt_to_offset(io, data),
+			    &ns_msg, sizeof(ns_msg));
+	rpmsg_virtio_release_rx_buffer(rdev, data);
+
+	dest = ns_msg.addr;
 
 	/* check if a Ept has been locally registered */
 	metal_mutex_acquire(&rdev->lock);
-	_ept = rpmsg_get_endpoint(rdev, name, RPMSG_ADDR_ANY, dest);
+	_ept = rpmsg_get_endpoint(rdev, ns_msg.name, RPMSG_ADDR_ANY, dest);
 
 	/*
 	 * If ept-release callback is not implemented, ns_unbind_cb() can free the ept.
@@ -660,7 +667,7 @@ static int rpmsg_virtio_ns_callback(struct rpmsg_endpoint *ept, void *data,
 	 */
 	ept_to_release = _ept && _ept->release_cb;
 
-	if (ns_msg->flags == RPMSG_NS_DESTROY) {
+	if (ns_msg.flags == RPMSG_NS_DESTROY) {
 		if (_ept)
 			_ept->dest_addr = RPMSG_ADDR_ANY;
 		if (ept_to_release)
@@ -669,13 +676,13 @@ static int rpmsg_virtio_ns_callback(struct rpmsg_endpoint *ept, void *data,
 		if (_ept && _ept->ns_unbind_cb)
 			_ept->ns_unbind_cb(_ept);
 		if (rdev->ns_unbind_cb)
-			rdev->ns_unbind_cb(rdev, name, dest);
+			rdev->ns_unbind_cb(rdev, ns_msg.name, dest);
 		if (ept_to_release) {
 			metal_mutex_acquire(&rdev->lock);
 			rpmsg_ept_decref(_ept);
 			metal_mutex_release(&rdev->lock);
 		}
-	} else if (ns_msg->flags == RPMSG_NS_CREATE) {
+	} else if (ns_msg.flags == RPMSG_NS_CREATE) {
 		if (!_ept) {
 			/*
 			 * send callback to application, that can
@@ -685,7 +692,7 @@ static int rpmsg_virtio_ns_callback(struct rpmsg_endpoint *ept, void *data,
 			 */
 			metal_mutex_release(&rdev->lock);
 			if (rdev->ns_bind_cb)
-				rdev->ns_bind_cb(rdev, name, dest);
+				rdev->ns_bind_cb(rdev, ns_msg.name, dest);
 		} else if (_ept->dest_addr == RPMSG_ADDR_ANY) {
 			_ept->dest_addr = dest;
 			metal_mutex_release(&rdev->lock);
@@ -710,7 +717,7 @@ static int rpmsg_virtio_ns_callback(struct rpmsg_endpoint *ept, void *data,
 			metal_mutex_release(&rdev->lock);
 	}
 
-	return RPMSG_SUCCESS;
+	return RPMSG_SUCCESS_BUFFER_RETURNED;
 }
 
 int rpmsg_virtio_get_tx_buffer_size(struct rpmsg_device *rdev)
