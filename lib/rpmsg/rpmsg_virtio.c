@@ -549,9 +549,9 @@ static void rpmsg_virtio_rx_callback(struct virtqueue *vq)
 	struct virtio_device *vdev = vq->vq_dev;
 	struct rpmsg_virtio_device *rvdev = vdev->priv;
 	struct rpmsg_device *rdev = &rvdev->rdev;
-	struct rpmsg_hdr *next_hdr = NULL;
 	struct rpmsg_endpoint *ept;
-	struct rpmsg_hdr *rp_hdr;
+	struct rpmsg_hdr *next_hdr = NULL;
+	struct rpmsg_hdr *rp_hdr = NULL;
 	uint32_t next_len;
 	uint16_t next_idx;
 	uint32_t len;
@@ -560,7 +560,12 @@ static void rpmsg_virtio_rx_callback(struct virtqueue *vq)
 
 	while (1) {
 		/* Process the received data from remote node */
-		if (!next_hdr) {
+		if (!next_hdr && !rp_hdr) {
+			/*
+			 * Only the first time enter in this loop need get rx
+			 * buffer, after this only use the next_hdr to avoid
+			 * peer enter low power mode.
+			 */
 			metal_mutex_acquire(&rdev->lock);
 			rp_hdr = rpmsg_virtio_get_rx_buffer(rvdev, &len, &idx);
 			metal_mutex_release(&rdev->lock);
@@ -584,6 +589,11 @@ static void rpmsg_virtio_rx_callback(struct virtqueue *vq)
 		ept = rpmsg_get_ept_from_addr(rdev, rp_hdr->dst);
 		rpmsg_ept_incref(ept);
 		RPMSG_BUF_HELD_INC(rp_hdr);
+		/*
+		 * Get next buffer before release current rx buffer to avoid
+		 * peer enter low power mode.
+		 */
+		next_hdr = rpmsg_virtio_get_rx_buffer(rvdev, &next_len, &next_idx);
 		metal_mutex_release(&rdev->lock);
 
 		if (ept) {
@@ -604,7 +614,6 @@ static void rpmsg_virtio_rx_callback(struct virtqueue *vq)
 
 		metal_mutex_acquire(&rdev->lock);
 		rpmsg_ept_decref(ept);
-		next_hdr = rpmsg_virtio_get_rx_buffer(rvdev, &next_len, &next_idx);
 		if (status != RPMSG_SUCCESS_BUFFER_RETURNED &&
 		    rpmsg_virtio_buf_held_dec_test(rp_hdr))
 			rpmsg_virtio_release_rx_buffer_nolock(rvdev, rp_hdr);
