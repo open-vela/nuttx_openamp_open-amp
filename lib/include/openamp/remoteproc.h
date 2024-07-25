@@ -24,6 +24,8 @@ extern "C" {
 
 #define RPROC_MAX_NAME_LEN 32
 
+#define VIRTIO_RPMSG_CPUNAME_SIZE 8
+
 /**
  * @brief Resource table header
  *
@@ -361,17 +363,26 @@ struct fw_rsc_vendor {
 	uint32_t len;
 } METAL_PACKED_END;
 
-/** @brief Configuration space declaration ((if VIRTIO_RPMSG_F_BUFSZ)) */
+/** @brief Configuration space declaration */
 METAL_PACKED_BEGIN
 struct fw_rsc_config {
-	/** The host to remote buffer size */
+	/** The host to remote buffer size (if VIRTIO_RPMSG_F_BUFSZ) */
 	uint32_t h2r_buf_size;
 
-	/** The remote to host buffer size */
+	/** The remote to host buffer size (if VIRTIO_RPMSG_F_BUFSZ) */
 	uint32_t r2h_buf_size;
 
-	/** Reserve for the future use */
-	uint32_t reserved[14];
+	/* The host side cpu name (if VIRTIO_RPMSG_F_CPUNAME) */
+
+	uint8_t host_cpuname[VIRTIO_RPMSG_CPUNAME_SIZE];
+
+	/* The remote side cpu name (if VIRTIO_RPMSG_F_CPUNAME) */
+
+	uint8_t remote_cpuname[VIRTIO_RPMSG_CPUNAME_SIZE];
+
+	/* Reserve for the future use */
+
+	uint32_t reserved[10];
 
 	/** Put the customize config here */
 } METAL_PACKED_END;
