@@ -209,6 +209,7 @@ static void rproc_virtio_set_features(struct virtio_device *vdev,
 			 metal_io_virt_to_offset(io, &vdev_rsc->gfeatures),
 			 (uint32_t)features);
 	RSC_TABLE_FLUSH(vdev_rsc, sizeof(struct fw_rsc_vdev));
+	vdev->features = features;
 	rpvdev->notify(rpvdev->priv, vdev->notifyid);
 }
 
