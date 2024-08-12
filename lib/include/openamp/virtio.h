@@ -152,6 +152,7 @@ struct virtio_device_id {
 typedef void (*virtio_dev_reset_cb)(struct virtio_device *vdev);
 
 struct virtio_dispatch;
+struct virtio_memory_ops;
 
 /** @brief Device features. */
 struct virtio_feature_desc {
@@ -197,6 +198,9 @@ struct virtio_device {
 	/** Virtio dispatch table */
 	const struct virtio_dispatch *func;
 
+	/** Virtio device memory operations */
+	const struct virtio_memory_ops *mmops;
+
 	/** Private data */
 	void *priv;
 
@@ -204,6 +208,7 @@ struct virtio_device {
 	unsigned int vrings_num;
 
 	/** Pointer to the virtio vring structure */
+
 	struct virtio_vring_info *vrings_info;
 };
 
@@ -280,6 +285,11 @@ struct virtio_dispatch {
 
 	/** Notify the other side that a virtio vring as been updated. */
 	void (*notify)(struct virtqueue *vq);
+};
+
+struct virtio_memory_ops {
+	void *(*alloc)(struct virtio_device *dev, size_t size, size_t align);
+	void (*free)(struct virtio_device *dev, void *buf);
 };
 
 /**
@@ -497,6 +507,38 @@ static inline int virtio_reset_device(struct virtio_device *vdev)
 
 	vdev->func->reset_device(vdev);
 	return 0;
+}
+
+/**
+ * @brief Allocate buffer from the virtio device
+ *
+ * @param vdev	Pointer to virtio device structure.
+ * @param size	Allocated buffer size.
+ * @param align	Allocated buffer alignment.
+ *
+ * @return The allocated buffer address.
+ */
+static inline void *virtio_alloc_buf(struct virtio_device *vdev,
+				     size_t size, size_t align)
+{
+	if (!vdev->mmops->alloc)
+		return NULL;
+
+	return vdev->mmops->alloc(vdev, size, align);
+}
+
+/**
+ * @brief Free buffer to the virtio device
+ *
+ * @param vdev	Pointer to virtio device structure.
+ * @param buf	Buffer need to be freed.
+ */
+static inline void virtio_free_buf(struct virtio_device *vdev, void *buf)
+{
+	if (!vdev->mmops->free)
+		return;
+
+	vdev->mmops->free(vdev, buf);
 }
 
 #if defined __cplusplus
