@@ -107,6 +107,10 @@ struct rpmsg_virtio_device {
 	/** Pointer to the shared buffers pool */
 	struct rpmsg_virtio_shm_pool *shpool;
 
+	/** Pointer to the alloced shared buffers */
+
+	void *shbuf;
+
 	/**
 	 * RPMsg buffer reclaimer that contains buffers released by the
 	 * \ref rpmsg_virtio_release_tx_buffer function

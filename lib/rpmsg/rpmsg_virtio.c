@@ -871,16 +871,6 @@ int rpmsg_init_vdev_with_config(struct rpmsg_virtio_device *rvdev,
 	}
 
 	if (VIRTIO_ROLE_IS_DRIVER(rvdev->vdev)) {
-		/*
-		 * Since device is RPMSG Remote so we need to manage the
-		 * shared buffers. Create shared memory pool to handle buffers.
-		 */
-		rvdev->shpool = config->split_shpool ? shpool + 1 : shpool;
-		if (!shpool)
-			return RPMSG_ERR_PARAM;
-		if (!shpool->size || !rvdev->shpool->size)
-			return RPMSG_ERR_NO_BUFF;
-
 		vq_names[0] = "rx_vq";
 		vq_names[1] = "tx_vq";
 		callback[0] = rpmsg_virtio_rx_callback;
@@ -928,10 +918,36 @@ int rpmsg_init_vdev_with_config(struct rpmsg_virtio_device *rvdev,
 		vq->shm_io = shm_io;
 	}
 
+	rvdev->shbuf = NULL;
 	if (VIRTIO_ROLE_IS_DRIVER(rvdev->vdev)) {
 		struct virtqueue_buf vqbuf;
 		unsigned int idx;
+		size_t shbufsz = 0;
 		void *buffer;
+
+		/*
+		 * Since device is RPMSG Remote so we need to manage the
+		 * shared buffers. Create shared memory pool to handle buffers.
+		 */
+		if (!shpool)
+			return RPMSG_ERR_PARAM;
+		if (!shpool->size) {
+			shbufsz = rvdev->config.h2r_buf_size * rvdev->svq->vq_nentries +
+				  rvdev->config.r2h_buf_size * rvdev->rvq->vq_nentries;
+			status = virtio_alloc_buf(vdev, &rvdev->shbuf, shbufsz, 8);
+			if (status < 0) {
+				status = RPMSG_ERR_NO_MEM;
+				goto err;
+			}
+			rpmsg_virtio_init_shm_pool(shpool, rvdev->shbuf, shbufsz);
+			rvdev->shpool = shpool;
+		} else {
+			rvdev->shpool = config->split_shpool ? shpool + 1 : shpool;
+			if (!rvdev->shpool->size) {
+				status = RPMSG_ERR_PARAM;
+				goto err;
+			}
+		}
 
 		vqbuf.len = rvdev->config.r2h_buf_size;
 		for (idx = 0; idx < rvdev->rvq->vq_nentries; idx++) {
@@ -993,6 +1009,8 @@ int rpmsg_init_vdev_with_config(struct rpmsg_virtio_device *rvdev,
 	return RPMSG_SUCCESS;
 
 err:
+	if (rvdev->shbuf)
+		virtio_free_buf(vdev, rvdev->shbuf);
 	virtio_delete_virtqueues(rvdev->vdev);
 	return status;
 }
@@ -1010,6 +1028,9 @@ void rpmsg_deinit_vdev(struct rpmsg_virtio_device *rvdev)
 			ept = metal_container_of(node, struct rpmsg_endpoint, node);
 			rpmsg_destroy_ept(ept);
 		}
+
+		if (rvdev->shbuf)
+			virtio_free_buf(rvdev->vdev, rvdev->shbuf);
 
 		rvdev->rvq = 0;
 		rvdev->svq = 0;
