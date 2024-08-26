@@ -214,6 +214,24 @@ typedef void (*vq_notify)(struct virtqueue *);
 
 #endif
 
+/* Default implementation of P2V based on libmetal */
+static inline void *virtqueue_phys_to_virt(struct virtqueue *vq,
+					   metal_phys_addr_t phys)
+{
+	struct metal_io_region *io = vq->shm_io;
+
+	return metal_io_phys_to_virt(io, phys);
+}
+
+/* Default implementation of V2P based on libmetal */
+static inline metal_phys_addr_t virtqueue_virt_to_phys(struct virtqueue *vq,
+						       void *buf)
+{
+	struct metal_io_region *io = vq->shm_io;
+
+	return metal_io_virt_to_phys(io, buf);
+}
+
 /**
  * @internal
  *
