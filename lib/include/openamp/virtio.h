@@ -201,6 +201,9 @@ struct virtio_device {
 	/** Virtio device memory operations */
 	const struct virtio_memory_ops *mmops;
 
+	/** The memory operation private data */
+	void *mm_priv;
+
 	/** Private data */
 	void *priv;
 
