@@ -548,50 +548,44 @@ static void rpmsg_virtio_rx_callback(struct virtqueue *vq)
 	struct rpmsg_virtio_device *rvdev = vdev->priv;
 	struct rpmsg_device *rdev = &rvdev->rdev;
 	struct rpmsg_endpoint *ept;
-	struct rpmsg_hdr *next_hdr = NULL;
 	struct rpmsg_hdr *rp_hdr = NULL;
-	uint32_t next_len;
-	uint16_t next_idx;
+	struct rpmsg_virtio_rxhdr *rxhdr;
+	struct metal_list *node;
+	bool release = false;
 	uint32_t len;
 	uint16_t idx;
 	int status = RPMSG_SUCCESS;
 
 	metal_mutex_acquire(&rdev->lock);
-	while (1) {
-		/* Process the received data from remote node */
-		if (!next_hdr && !rp_hdr) {
-			/*
-			 * Only the first time enter in this loop need get rx
-			 * buffer, after this only use the next_hdr to avoid
-			 * peer enter low power mode.
-			 */
-			rp_hdr = rpmsg_virtio_get_rx_buffer(rvdev, &len, &idx);
-			if (!rp_hdr)
-				break;
-		} else {
-			/* No more filled rx buffers */
-			if (!next_hdr) {
-				/* Tell peer we returned some rx buffer */
-				virtqueue_kick(rvdev->rvq);
-				break;
-			}
+	/* Get all the rx buffers and put them to the rx buffer used list */
+	while ((node = metal_list_first(&rvdev->rxhdrs_free)) != NULL) {
+		rp_hdr = rpmsg_virtio_get_rx_buffer(rvdev, &len, &idx);
+		if (!rp_hdr)
+			break;
 
-			rp_hdr = next_hdr;
-			len = next_len;
-			idx = next_idx;
-		}
+		metal_list_del(node);
+		rxhdr = metal_container_of(node, struct rpmsg_virtio_rxhdr, node);
+		metal_list_add_tail(&rvdev->rxhdrs_used, &rxhdr->node);
 
 		rp_hdr->reserved = idx;
+		rxhdr->hdr = rp_hdr;
+	}
+
+	/*
+	 * Get all the rx buffers from used list and return them to free list,
+	 * and then handle these rx buffer.
+	 */
+	while ((node = metal_list_first(&rvdev->rxhdrs_used)) != NULL) {
+		metal_list_del(node);
+		rxhdr = metal_container_of(node, struct rpmsg_virtio_rxhdr, node);
+		metal_list_add_tail(&rvdev->rxhdrs_free, &rxhdr->node);
+
+		rp_hdr = rxhdr->hdr;
 
 		/* Get the channel node from the remote device channels list. */
 		ept = rpmsg_get_ept_from_addr(rdev, rp_hdr->dst);
 		rpmsg_ept_incref(ept);
 		RPMSG_BUF_HELD_INC(rp_hdr);
-		/*
-		 * Get next buffer before release current rx buffer to avoid
-		 * peer enter low power mode.
-		 */
-		next_hdr = rpmsg_virtio_get_rx_buffer(rvdev, &next_len, &next_idx);
 		metal_mutex_release(&rdev->lock);
 
 		if (ept) {
@@ -613,9 +607,16 @@ static void rpmsg_virtio_rx_callback(struct virtqueue *vq)
 		metal_mutex_acquire(&rdev->lock);
 		rpmsg_ept_decref(ept);
 		if (status != RPMSG_SUCCESS_BUFFER_RETURNED &&
-		    rpmsg_virtio_buf_held_dec_test(rp_hdr))
+			rpmsg_virtio_buf_held_dec_test(rp_hdr)) {
 			rpmsg_virtio_release_rx_buffer_nolock(rvdev, rp_hdr);
+			release = true;
+		}
 	}
+
+	if (release)
+		/* tell peer we return some rx buffer */
+		virtqueue_kick(rvdev->rvq);
+
 	metal_mutex_release(&rdev->lock);
 }
 
@@ -959,6 +960,17 @@ int rpmsg_init_vdev_with_config(struct rpmsg_virtio_device *rvdev,
 		}
 	}
 
+	rvdev->rxhdrs = metal_allocate_memory(rvdev->rvq->vq_nentries *
+					      sizeof(*rvdev->rxhdrs));
+	if (!rvdev->rxhdrs)
+		goto err;
+
+	memset(rvdev->rxhdrs, 0, rvdev->rvq->vq_nentries * sizeof(*rvdev->rxhdrs));
+	metal_list_init(&rvdev->rxhdrs_used);
+	metal_list_init(&rvdev->rxhdrs_free);
+	for (i = 0; i < rvdev->rvq->vq_nentries; i++)
+		metal_list_add_tail(&rvdev->rxhdrs_free, &rvdev->rxhdrs[i].node);
+
 	/* Initialize channels and endpoints list */
 	metal_list_init(&rdev->endpoints);
 
@@ -1002,6 +1014,7 @@ void rpmsg_deinit_vdev(struct rpmsg_virtio_device *rvdev)
 		rvdev->rvq = 0;
 		rvdev->svq = 0;
 
+		metal_free_memory(rvdev->rxhdrs);
 		virtio_delete_virtqueues(rvdev->vdev);
 		metal_mutex_deinit(&rdev->lock);
 	}

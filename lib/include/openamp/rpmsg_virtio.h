@@ -75,6 +75,14 @@ struct rpmsg_virtio_config {
 	bool split_shpool;
 };
 
+/** @brief Rx hdr of RPMsg device based on virtio */
+struct rpmsg_virtio_rxhdr {
+	/** List node */
+	struct metal_list node;
+	/** Pointer to the rx buffer */
+	struct rpmsg_hdr *hdr;
+};
+
 /** @brief Representation of a RPMsg device based on virtio */
 struct rpmsg_virtio_device {
 	/** RPMsg device */
@@ -109,6 +117,21 @@ struct rpmsg_virtio_device {
 	 * can't get tx buffer
 	 */
 	rpmsg_virtio_notify_wait_cb notify_wait_cb;
+
+	/** Pointer to the alloced array of rpmsg_virtio_rxhdr structures */
+	struct rpmsg_virtio_rxhdr *rxhdrs;
+
+	/**
+	 * List of rpmsg_virtio_rxhdr structures that are used to store consumed
+	 * buffers
+	 */
+	struct metal_list rxhdrs_free;
+
+	/**
+	 * List of rpmsg_virtio_rxhdr structures that are used to store received
+	 * buffers
+	 */
+	struct metal_list rxhdrs_used;
 };
 
 #define RPMSG_REMOTE	VIRTIO_DEV_DEVICE
