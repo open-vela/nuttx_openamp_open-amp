@@ -379,11 +379,9 @@ static void *rpmsg_virtio_get_tx_payload_buffer(struct rpmsg_device *rdev,
 		 * use metal_sleep_usec() method by default.
 		 */
 		status = rpmsg_virtio_notify_wait(rvdev, rvdev->rvq);
-		if (status == RPMSG_EOPNOTSUPP) {
+		if (status != RPMSG_SUCCESS) {
 			metal_sleep_usec(RPMSG_TICKS_PER_INTERVAL);
 			tick_count--;
-		} else if (status == RPMSG_SUCCESS) {
-			continue;
 		}
 	}
 
@@ -569,17 +567,19 @@ static void rpmsg_virtio_rx_callback(struct virtqueue *vq)
 			metal_mutex_acquire(&rdev->lock);
 			rp_hdr = rpmsg_virtio_get_rx_buffer(rvdev, &len, &idx);
 			metal_mutex_release(&rdev->lock);
+			if (!rp_hdr)
+				break;
 		} else {
+			/* No more filled rx buffers */
+			if (!next_hdr) {
+				/* Tell peer we returned some rx buffer */
+				virtqueue_kick(rvdev->rvq);
+				break;
+			}
+
 			rp_hdr = next_hdr;
 			len = next_len;
 			idx = next_idx;
-		}
-
-		/* No more filled rx buffers */
-		if (!rp_hdr) {
-			/* Tell peer we returned some rx buffer */
-			virtqueue_kick(rvdev->rvq);
-			break;
 		}
 
 		rp_hdr->reserved = idx;
