@@ -413,6 +413,6 @@ void rproc_virtio_wait_remote_ready(struct virtio_device *vdev)
 		status = rproc_virtio_get_status(vdev);
 		if (status & VIRTIO_CONFIG_STATUS_DRIVER_OK)
 			return;
-		metal_sleep_usec(1);
+		metal_sleep_usec(1000);
 	}
 }
