@@ -329,7 +329,7 @@ void virtqueue_dump(struct virtqueue *vq)
 	VRING_INVALIDATE(&vq->vq_ring.avail, sizeof(vq->vq_ring.avail));
 	VRING_INVALIDATE(&vq->vq_ring.used, sizeof(vq->vq_ring.used));
 
-	metal_log(METAL_LOG_DEBUG,
+	metal_log(METAL_LOG_EMERGENCY,
 		  "VQ: %s - size=%d; free=%d; queued=%d; desc_head_idx=%d; "
 		  "available_idx=%d; avail.idx=%d; used_cons_idx=%d; "
 		  "used.idx=%d; avail.flags=0x%x; used.flags=0x%x\r\n",
