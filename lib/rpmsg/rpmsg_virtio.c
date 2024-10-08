@@ -841,7 +841,7 @@ int rpmsg_init_vdev_with_config(struct rpmsg_virtio_device *rvdev,
 	rdev->ops.get_rx_buffer_size = rpmsg_virtio_get_rx_buffer_size;
 	rdev->ops.get_tx_buffer_size = rpmsg_virtio_get_tx_buffer_size;
 
-	if (VIRTIO_ROLE_IS_DRIVER(rvdev->vdev)) {
+	if (VIRTIO_ROLE_IS_DRIVER(vdev)) {
 		/*
 		 * The virtio configuration contains only options applicable to
 		 * a virtio driver, implying rpmsg host role.
@@ -852,14 +852,14 @@ int rpmsg_init_vdev_with_config(struct rpmsg_virtio_device *rvdev,
 		rvdev->config = *config;
 	}
 
-	if (VIRTIO_ROLE_IS_DEVICE(rvdev->vdev)) {
+	if (VIRTIO_ROLE_IS_DEVICE(vdev)) {
 		/* wait synchro with the host */
 		status = rpmsg_virtio_wait_remote_ready(rvdev);
 		if (status)
 			return status;
 	}
 
-	status = virtio_get_features(rvdev->vdev, &features);
+	status = virtio_get_features(vdev, &features);
 	if (status)
 		return status;
 	rdev->support_ns = !!(features & (1 << VIRTIO_RPMSG_F_NS));
@@ -870,14 +870,14 @@ int rpmsg_init_vdev_with_config(struct rpmsg_virtio_device *rvdev,
 		rvdev->config.r2h_buf_size = fw_config.r2h_buf_size;
 	}
 
-	if (VIRTIO_ROLE_IS_DRIVER(rvdev->vdev)) {
+	if (VIRTIO_ROLE_IS_DRIVER(vdev)) {
 		vq_names[0] = "rx_vq";
 		vq_names[1] = "tx_vq";
 		callback[0] = rpmsg_virtio_rx_callback;
 		callback[1] = rpmsg_virtio_tx_callback;
 	}
 
-	if (VIRTIO_ROLE_IS_DEVICE(rvdev->vdev)) {
+	if (VIRTIO_ROLE_IS_DEVICE(vdev)) {
 		vq_names[0] = "tx_vq";
 		vq_names[1] = "rx_vq";
 		callback[0] = rpmsg_virtio_tx_callback;
@@ -888,18 +888,18 @@ int rpmsg_init_vdev_with_config(struct rpmsg_virtio_device *rvdev,
 	metal_list_init(&rvdev->reclaimer);
 
 	/* Create virtqueues for remote device */
-	status = virtio_create_virtqueues(rvdev->vdev, 0, RPMSG_NUM_VRINGS,
+	status = virtio_create_virtqueues(vdev, 0, RPMSG_NUM_VRINGS,
 					  vq_names, callback, NULL);
 	if (status != RPMSG_SUCCESS)
 		return status;
 
 	/* Create virtqueue success, assign back the virtqueue */
-	if (VIRTIO_ROLE_IS_DRIVER(rvdev->vdev)) {
+	if (VIRTIO_ROLE_IS_DRIVER(vdev)) {
 		rvdev->rvq  = vdev->vrings_info[0].vq;
 		rvdev->svq  = vdev->vrings_info[1].vq;
 	}
 
-	if (VIRTIO_ROLE_IS_DEVICE(rvdev->vdev)) {
+	if (VIRTIO_ROLE_IS_DEVICE(vdev)) {
 		rvdev->rvq  = vdev->vrings_info[1].vq;
 		rvdev->svq  = vdev->vrings_info[0].vq;
 	}
@@ -919,7 +919,7 @@ int rpmsg_init_vdev_with_config(struct rpmsg_virtio_device *rvdev,
 	}
 
 	rvdev->shbuf = NULL;
-	if (VIRTIO_ROLE_IS_DRIVER(rvdev->vdev)) {
+	if (VIRTIO_ROLE_IS_DRIVER(vdev)) {
 		struct virtqueue_buf vqbuf;
 		unsigned int idx;
 		size_t shbufsz = 0;
@@ -1000,8 +1000,8 @@ int rpmsg_init_vdev_with_config(struct rpmsg_virtio_device *rvdev,
 				     rpmsg_virtio_ns_callback, NULL, rvdev);
 	}
 
-	if (VIRTIO_ROLE_IS_DRIVER(rvdev->vdev)) {
-		status = virtio_set_status(rvdev->vdev, VIRTIO_CONFIG_STATUS_DRIVER_OK);
+	if (VIRTIO_ROLE_IS_DRIVER(vdev)) {
+		status = virtio_set_status(vdev, VIRTIO_CONFIG_STATUS_DRIVER_OK);
 		if (status)
 			goto err;
 	}
@@ -1011,7 +1011,7 @@ int rpmsg_init_vdev_with_config(struct rpmsg_virtio_device *rvdev,
 err:
 	if (rvdev->shbuf)
 		virtio_free_buf(vdev, rvdev->shbuf);
-	virtio_delete_virtqueues(rvdev->vdev);
+	virtio_delete_virtqueues(vdev);
 	return status;
 }
 
