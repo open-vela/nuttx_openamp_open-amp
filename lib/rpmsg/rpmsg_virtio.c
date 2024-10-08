@@ -556,6 +556,7 @@ static void rpmsg_virtio_rx_callback(struct virtqueue *vq)
 	uint16_t idx;
 	int status = RPMSG_SUCCESS;
 
+	metal_mutex_acquire(&rdev->lock);
 	while (1) {
 		/* Process the received data from remote node */
 		if (!next_hdr && !rp_hdr) {
@@ -564,9 +565,7 @@ static void rpmsg_virtio_rx_callback(struct virtqueue *vq)
 			 * buffer, after this only use the next_hdr to avoid
 			 * peer enter low power mode.
 			 */
-			metal_mutex_acquire(&rdev->lock);
 			rp_hdr = rpmsg_virtio_get_rx_buffer(rvdev, &len, &idx);
-			metal_mutex_release(&rdev->lock);
 			if (!rp_hdr)
 				break;
 		} else {
@@ -585,7 +584,6 @@ static void rpmsg_virtio_rx_callback(struct virtqueue *vq)
 		rp_hdr->reserved = idx;
 
 		/* Get the channel node from the remote device channels list. */
-		metal_mutex_acquire(&rdev->lock);
 		ept = rpmsg_get_ept_from_addr(rdev, rp_hdr->dst);
 		rpmsg_ept_incref(ept);
 		RPMSG_BUF_HELD_INC(rp_hdr);
@@ -617,9 +615,8 @@ static void rpmsg_virtio_rx_callback(struct virtqueue *vq)
 		if (status != RPMSG_SUCCESS_BUFFER_RETURNED &&
 		    rpmsg_virtio_buf_held_dec_test(rp_hdr))
 			rpmsg_virtio_release_rx_buffer_nolock(rvdev, rp_hdr);
-
-		metal_mutex_release(&rdev->lock);
 	}
+	metal_mutex_release(&rdev->lock);
 }
 
 /**
