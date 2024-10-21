@@ -750,8 +750,7 @@ int rpmsg_virtio_get_tx_buffer_size(struct rpmsg_device *rdev)
 		 * If other core is host then buffers are provided by it,
 		 * so get the buffer size from the virtqueue.
 		 */
-		size = (int)virtqueue_get_desc_size(rvdev->svq) -
-		       sizeof(struct rpmsg_hdr);
+		size = rvdev->config.r2h_buf_size - sizeof(struct rpmsg_hdr);
 	}
 
 	if (size <= 0)
@@ -786,8 +785,7 @@ int rpmsg_virtio_get_rx_buffer_size(struct rpmsg_device *rdev)
 		 * If other core is host then buffers are provided by it,
 		 * so get the buffer size from the virtqueue.
 		 */
-		size = (int)virtqueue_get_desc_size(rvdev->rvq) -
-		       sizeof(struct rpmsg_hdr);
+		size = rvdev->config.h2r_buf_size - sizeof(struct rpmsg_hdr);
 	}
 
 	if (size <= 0)
