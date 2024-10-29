@@ -513,32 +513,48 @@ static inline int virtio_reset_device(struct virtio_device *vdev)
  * @brief Allocate buffer from the virtio device
  *
  * @param vdev	Pointer to virtio device structure.
+ * @param buf	Pointer to the allocated buffer (virtual address).
  * @param size	Allocated buffer size.
  * @param align	Allocated buffer alignment.
  *
- * @return The allocated buffer address.
+ * @return 0 on success, otherwise error code.
  */
-static inline void *virtio_alloc_buf(struct virtio_device *vdev,
-				     size_t size, size_t align)
+static inline int virtio_alloc_buf(struct virtio_device *vdev, void **buf,
+				   size_t size, size_t align)
 {
-	if (!vdev->mmops->alloc)
-		return NULL;
+	if (!vdev || !buf)
+		return -EINVAL;
 
-	return vdev->mmops->alloc(vdev, size, align);
+	if (!vdev->mmops || !vdev->mmops->alloc)
+		return -ENXIO;
+
+	*buf = vdev->mmops->alloc(vdev, size, align);
+	if (!*buf)
+		return -ENOMEM;
+
+	return 0;
 }
 
 /**
- * @brief Free buffer to the virtio device
+ * @brief Free the buffer allocated by \ref virtio_alloc_buf from the virtio
+ * device.
  *
  * @param vdev	Pointer to virtio device structure.
  * @param buf	Buffer need to be freed.
+ *
+ * @return 0 on success, otherwise error code.
  */
-static inline void virtio_free_buf(struct virtio_device *vdev, void *buf)
+static inline int virtio_free_buf(struct virtio_device *vdev, void *buf)
 {
-	if (!vdev->mmops->free)
-		return;
+	if (!vdev)
+		return -EINVAL;
+
+	if (!vdev->mmops || !vdev->mmops->free)
+		return -ENXIO;
 
 	vdev->mmops->free(vdev, buf);
+
+	return 0;
 }
 
 #if defined __cplusplus
