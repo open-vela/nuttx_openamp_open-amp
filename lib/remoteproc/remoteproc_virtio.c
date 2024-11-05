@@ -215,11 +215,11 @@ static void rproc_virtio_set_features(struct virtio_device *vdev,
 static uint64_t rproc_virtio_negotiate_features(struct virtio_device *vdev,
 						uint64_t features)
 {
-	uint32_t dfeatures = rproc_virtio_get_dfeatures(vdev);
+	features = features & rproc_virtio_get_dfeatures(vdev);
+	rproc_virtio_set_features(vdev, features);
 
-	rproc_virtio_set_features(vdev, dfeatures & (uint32_t)features);
-
-	return 0;
+	/* return the mask of features successfully negotiated */
+	return features;
 }
 #endif
 
