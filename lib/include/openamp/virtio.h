@@ -444,6 +444,9 @@ static inline int virtio_get_features(struct virtio_device *vdev,
 		return -ENXIO;
 
 	*features = vdev->func->get_features(vdev);
+	if (VIRTIO_ROLE_IS_DEVICE(vdev))
+		vdev->features = *features;
+
 	return 0;
 }
 
