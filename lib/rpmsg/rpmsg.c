@@ -130,7 +130,8 @@ int rpmsg_send_offchannel_raw(struct rpmsg_endpoint *ept, uint32_t src,
 
 	if (rdev->ops.send_offchannel_raw)
 		return rdev->ops.send_offchannel_raw(rdev, src, dst, data,
-						     len, wait);
+						     len, wait,
+						     ept->priority);
 
 	return RPMSG_ERR_PARAM;
 }
@@ -204,7 +205,8 @@ void *rpmsg_get_tx_payload_buffer(struct rpmsg_endpoint *ept,
 	rdev = ept->rdev;
 
 	if (rdev->ops.get_tx_payload_buffer)
-		return rdev->ops.get_tx_payload_buffer(rdev, len, wait);
+		return rdev->ops.get_tx_payload_buffer(rdev, len, wait,
+						       ept->priority);
 
 	return NULL;
 }
@@ -284,6 +286,15 @@ struct rpmsg_endpoint *rpmsg_get_endpoint(struct rpmsg_device *rdev,
 			return ept;
 	}
 	return NULL;
+}
+
+int rpmsg_set_priority(FAR struct rpmsg_endpoint *ept, uint8_t priority)
+{
+	if (!ept)
+		return -EINVAL;
+
+	ept->priority = priority;
+	return 0;
 }
 
 static void rpmsg_unregister_endpoint(struct rpmsg_endpoint *ept)

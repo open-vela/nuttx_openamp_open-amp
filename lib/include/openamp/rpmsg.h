@@ -53,6 +53,10 @@ extern "C" {
 #define RPMSG_ERR_PERM			(RPMSG_ERROR_BASE - 8)
 #define RPMSG_EOPNOTSUPP		(RPMSG_ERROR_BASE - 9)
 
+#define RPMSG_PRIO_MIN			0
+#define RPMSG_PRIO_DEFAULT		100
+#define RPMSG_PRIO_MAX			255
+
 struct rpmsg_endpoint;
 struct rpmsg_device;
 
@@ -102,6 +106,9 @@ struct rpmsg_endpoint {
 	/** Endpoint service unbind callback, called when remote ept is destroyed */
 	rpmsg_ns_unbind_cb ns_unbind_cb;
 
+	/** The priority of current rpmsg endpoint */
+	uint8_t priority;
+
 	/** Endpoint node */
 	struct metal_list node;
 
@@ -114,7 +121,7 @@ struct rpmsg_device_ops {
 	/** Send RPMsg data */
 	int (*send_offchannel_raw)(struct rpmsg_device *rdev,
 				   uint32_t src, uint32_t dst,
-				   const void *data, int len, int wait);
+				   const void *data, int len, int wait, uint8_t priority);
 
 	/** Hold RPMsg RX buffer */
 	void (*hold_rx_buffer)(struct rpmsg_device *rdev, void *rxbuf);
@@ -124,7 +131,7 @@ struct rpmsg_device_ops {
 
 	/** Get RPMsg TX buffer */
 	void *(*get_tx_payload_buffer)(struct rpmsg_device *rdev,
-				       uint32_t *len, int wait);
+				       uint32_t *len, int wait, uint8_t priority);
 
 	/** Send RPMsg data without copy */
 	int (*send_offchannel_nocopy)(struct rpmsg_device *rdev,
@@ -590,6 +597,20 @@ static inline int rpmsg_send_nocopy(struct rpmsg_endpoint *ept,
 
 	return RPMSG_ERR_ADDR;
 }
+
+/**
+ * @brief Set the priority of the RPMsg endpoint
+ *
+ * This function is used to set the priority of the RPMsg endpoint. The priority is
+ * an 8-bit unsigned integer that determines the scheduling order of messages when
+ * they are sent.
+ *
+ * @param ept	RPMsg endpoint pointer
+ * @param priority	endpoint priority
+ *
+ * @return 0 indicates success, negative value if failed
+ */
+int rpmsg_set_priority(FAR struct rpmsg_endpoint *ept, uint8_t priority);
 
 /**
  * @brief Create rpmsg endpoint and register it to rpmsg device
