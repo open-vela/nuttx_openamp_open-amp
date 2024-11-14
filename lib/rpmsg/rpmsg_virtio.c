@@ -349,13 +349,16 @@ static int rpmsg_virtio_notify_wait(struct rpmsg_virtio_device *rvdev, struct vi
 }
 
 static void *rpmsg_virtio_get_tx_payload_buffer(struct rpmsg_device *rdev,
-						uint32_t *len, int wait)
+						uint32_t *len, int wait,
+						uint8_t priority)
 {
 	struct rpmsg_virtio_device *rvdev;
 	struct rpmsg_hdr *rp_hdr;
 	uint16_t idx;
 	int tick_count;
 	int status;
+
+	metal_unused(priority);
 
 	/* Get the associated remote device for channel. */
 	rvdev = metal_container_of(rdev, struct rpmsg_virtio_device, rdev);
@@ -495,8 +498,8 @@ static int rpmsg_virtio_release_tx_buffer(struct rpmsg_device *rdev, void *txbuf
  */
 static int rpmsg_virtio_send_offchannel_raw(struct rpmsg_device *rdev,
 					    uint32_t src, uint32_t dst,
-					    const void *data,
-					    int len, int wait)
+					    const void *data, int len,
+					    int wait, uint8_t priority)
 {
 	struct rpmsg_virtio_device *rvdev;
 	struct metal_io_region *io;
@@ -508,7 +511,7 @@ static int rpmsg_virtio_send_offchannel_raw(struct rpmsg_device *rdev,
 	rvdev = metal_container_of(rdev, struct rpmsg_virtio_device, rdev);
 
 	/* Get the payload buffer. */
-	buffer = rpmsg_virtio_get_tx_payload_buffer(rdev, &buff_len, wait);
+	buffer = rpmsg_virtio_get_tx_payload_buffer(rdev, &buff_len, wait, priority);
 	if (!buffer)
 		return RPMSG_ERR_NO_BUFF;
 
