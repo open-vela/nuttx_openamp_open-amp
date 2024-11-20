@@ -21,8 +21,6 @@ static int vq_ring_enable_interrupt(struct virtqueue *, uint16_t);
 static void vq_ring_free_chain(struct virtqueue *, uint16_t);
 static int vq_ring_must_notify(struct virtqueue *vq);
 static void vq_ring_notify(struct virtqueue *vq);
-static int virtqueue_nused(struct virtqueue *vq);
-static int virtqueue_navail(struct virtqueue *vq);
 
 int virtqueue_create(struct virtio_device *virt_dev, unsigned short id,
 		     const char *name, struct vring_alloc_info *ring,
@@ -355,6 +353,45 @@ uint32_t virtqueue_get_desc_size(struct virtqueue *vq)
 	return len;
 }
 
+/*
+ *
+ * virtqueue_nused
+ *
+ */
+int virtqueue_nused(struct virtqueue *vq)
+{
+	uint16_t used_idx, nused;
+
+	/* Used is written by remote */
+	VRING_INVALIDATE(&vq->vq_ring.used->idx, sizeof(vq->vq_ring.used->idx));
+	used_idx = vq->vq_ring.used->idx;
+
+	nused = (uint16_t)(used_idx - vq->vq_used_cons_idx);
+	VQASSERT(vq, nused <= vq->vq_nentries, "used more than available");
+
+	return nused;
+}
+
+/*
+ *
+ * virtqueue_navail
+ *
+ */
+int virtqueue_navail(struct virtqueue *vq)
+{
+	uint16_t avail_idx, navail;
+
+	/* Avail is written by driver */
+	VRING_INVALIDATE(&vq->vq_ring.avail->idx, sizeof(vq->vq_ring.avail->idx));
+
+	avail_idx = vq->vq_ring.avail->idx;
+
+	navail = (uint16_t)(avail_idx - vq->vq_available_idx);
+	VQASSERT(vq, navail <= vq->vq_nentries, "avail more than available");
+
+	return navail;
+}
+
 /**************************************************************************
  *                            Helper Functions                            *
  **************************************************************************/
@@ -642,43 +679,4 @@ static void vq_ring_notify(struct virtqueue *vq)
 {
 	if (vq->notify)
 		vq->notify(vq);
-}
-
-/*
- *
- * virtqueue_nused
- *
- */
-static int virtqueue_nused(struct virtqueue *vq)
-{
-	uint16_t used_idx, nused;
-
-	/* Used is written by remote */
-	VRING_INVALIDATE(&vq->vq_ring.used->idx, sizeof(vq->vq_ring.used->idx));
-	used_idx = vq->vq_ring.used->idx;
-
-	nused = (uint16_t)(used_idx - vq->vq_used_cons_idx);
-	VQASSERT(vq, nused <= vq->vq_nentries, "used more than available");
-
-	return nused;
-}
-
-/*
- *
- * virtqueue_navail
- *
- */
-static int virtqueue_navail(struct virtqueue *vq)
-{
-	uint16_t avail_idx, navail;
-
-	/* Avail is written by driver */
-	VRING_INVALIDATE(&vq->vq_ring.avail->idx, sizeof(vq->vq_ring.avail->idx));
-
-	avail_idx = vq->vq_ring.avail->idx;
-
-	navail = (uint16_t)(avail_idx - vq->vq_available_idx);
-	VQASSERT(vq, navail <= vq->vq_nentries, "avail more than available");
-
-	return navail;
 }
