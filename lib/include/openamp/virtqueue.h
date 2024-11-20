@@ -428,6 +428,24 @@ static inline int virtqueue_full(struct virtqueue *vq)
 	return (vq->vq_free_cnt == 0);
 }
 
+/**
+ * @brief Get number of used buffers in virtqueue
+ *
+ * @param vq	Pointer to VirtIO queue control block
+ *
+ * @return Number of used buffers
+ */
+int virtqueue_nused(struct virtqueue *vq);
+
+/**
+ * @brief Get number of available buffers in virtqueue
+ *
+ * @param vq	Pointer to VirtIO queue control block
+ *
+ * @return Number of available buffers
+ */
+int virtqueue_navail(struct virtqueue *vq);
+
 #if defined __cplusplus
 }
 #endif
