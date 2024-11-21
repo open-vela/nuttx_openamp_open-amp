@@ -404,6 +404,7 @@ int rproc_virtio_notified(struct virtio_device *vdev, uint32_t notifyid)
 	unsigned int num_vrings, i;
 	struct virtio_vring_info *vring_info;
 	struct virtqueue *vq;
+	bool notify;
 
 	if (!vdev)
 		return -RPROC_EINVAL;
@@ -413,9 +414,13 @@ int rproc_virtio_notified(struct virtio_device *vdev, uint32_t notifyid)
 	num_vrings = vdev->vrings_num;
 	for (i = 0; i < num_vrings; i++) {
 		vring_info = &vdev->vrings_info[i];
-		if (vring_info->notifyid == notifyid ||
-		    notifyid == RSC_NOTIFY_ID_ANY) {
-			vq = vring_info->vq;
+		vq = vring_info->vq;
+		if (vdev->role == VIRTIO_DEV_DRIVER)
+			notify = virtqueue_nused(vq) > 0;
+		else
+			notify = virtqueue_navail(vq) > 0;
+		if (notify && (vring_info->notifyid == notifyid ||
+		    notifyid == RSC_NOTIFY_ID_ANY)) {
 			virtqueue_notification(vq);
 		}
 	}
