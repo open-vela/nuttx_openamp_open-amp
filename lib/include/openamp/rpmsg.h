@@ -54,7 +54,7 @@ extern "C" {
 #define RPMSG_EOPNOTSUPP		(RPMSG_ERROR_BASE - 9)
 
 #define RPMSG_PRIO_MIN			0
-#define RPMSG_PRIO_DEFAULT		100
+#define RPMSG_PRIO_DEFAULT		127
 #define RPMSG_PRIO_MAX			255
 
 struct rpmsg_endpoint;
