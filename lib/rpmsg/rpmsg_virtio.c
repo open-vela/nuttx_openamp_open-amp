@@ -1017,5 +1017,6 @@ void rpmsg_deinit_vdev(struct rpmsg_virtio_device *rvdev)
 		metal_free_memory(rvdev->rxhdrs);
 		virtio_delete_virtqueues(rvdev->vdev);
 		metal_mutex_deinit(&rdev->lock);
+		rvdev->vdev = NULL;
 	}
 }
