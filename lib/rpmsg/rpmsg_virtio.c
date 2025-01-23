@@ -282,10 +282,8 @@ static int rpmsg_virtio_wait_remote_ready(struct rpmsg_virtio_device *rvdev)
 static bool rpmsg_virtio_buf_held_dec_test(struct rpmsg_hdr *rp_hdr)
 {
 	/* Check the held counter first */
-	if (RPMSG_BUF_HELD_COUNTER(rp_hdr) <= 0) {
-		metal_err("unexpected buffer held counter\r\n");
-		return false;
-	}
+	RPMSG_ASSERT(RPMSG_BUF_HELD_COUNTER(rp_hdr) > 0,
+		     "unexpected buffer held counter\r\n");
 
 	/* Decrease the held counter */
 	RPMSG_BUF_HELD_DEC(rp_hdr);
