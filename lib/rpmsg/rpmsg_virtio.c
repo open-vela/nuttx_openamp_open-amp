@@ -554,7 +554,7 @@ static void rpmsg_virtio_rx_callback(struct virtqueue *vq)
 	bool release = false;
 	uint32_t len;
 	uint16_t idx;
-	int status = RPMSG_SUCCESS;
+	int status;
 
 	metal_mutex_acquire(&rdev->lock);
 	/* Get all the rx buffers and put them to the rx buffer used list */
@@ -602,6 +602,8 @@ static void rpmsg_virtio_rx_callback(struct virtqueue *vq)
 			RPMSG_ASSERT(status >= 0 ||
 				     status == RPMSG_SUCCESS_BUFFER_RETURNED,
 				     "unexpected callback status\r\n");
+		} else {
+			status = RPMSG_SUCCESS;
 		}
 
 		metal_mutex_acquire(&rdev->lock);
