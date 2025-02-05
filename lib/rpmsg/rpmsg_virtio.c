@@ -604,7 +604,7 @@ static void rpmsg_virtio_rx_callback(struct virtqueue *vq)
 					 rp_hdr->len, rp_hdr->src, ept->priv);
 
 			RPMSG_ASSERT(status >= 0 ||
-				     status == RPMSG_SUCCESS_BUFFER_RETURNED,
+				     status == RPMSG_SUCCESS_BUFFER_RELEASED,
 				     "unexpected callback status\r\n");
 		} else {
 			status = RPMSG_SUCCESS;
@@ -612,8 +612,8 @@ static void rpmsg_virtio_rx_callback(struct virtqueue *vq)
 
 		metal_mutex_acquire(&rdev->lock);
 		rpmsg_ept_decref(ept);
-		if (status != RPMSG_SUCCESS_BUFFER_RETURNED &&
-			rpmsg_virtio_buf_held_dec_test(rp_hdr)) {
+		if (status != RPMSG_SUCCESS_BUFFER_RELEASED &&
+		    rpmsg_virtio_buf_held_dec_test(rp_hdr)) {
 			rpmsg_virtio_release_rx_buffer_nolock(rvdev, rp_hdr);
 			release = true;
 		}
@@ -730,7 +730,7 @@ static int rpmsg_virtio_ns_callback(struct rpmsg_endpoint *ept, void *data,
 			metal_mutex_release(&rdev->lock);
 	}
 
-	return RPMSG_SUCCESS_BUFFER_RETURNED;
+	return RPMSG_SUCCESS_BUFFER_RELEASED;
 }
 
 int rpmsg_virtio_get_tx_buffer_size(struct rpmsg_device *rdev)
