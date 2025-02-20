@@ -135,7 +135,7 @@ void *virtqueue_get_buffer(struct virtqueue *vq, uint32_t *len, uint16_t *idx)
 	VRING_INVALIDATE(&vq->vq_ring.used->ring[used_idx],
 			 sizeof(vq->vq_ring.used->ring[used_idx]));
 
-	desc_idx = (uint16_t)uep->id;
+	desc_idx = (uint16_t)uep->u.id;
 	if (len)
 		*len = uep->len;
 
@@ -226,7 +226,7 @@ int virtqueue_add_consumed_buffer(struct virtqueue *vq, uint16_t head_idx,
 	/* CACHE: used is never written by driver, so it's safe to directly access it */
 	used_idx = vq->vq_ring.used->idx & (vq->vq_nentries - 1);
 	used_desc = &vq->vq_ring.used->ring[used_idx];
-	used_desc->id = head_idx;
+	used_desc->u.id = head_idx;
 	used_desc->len = len;
 
 	/* We still need to flush it because this is read by driver */
