@@ -120,7 +120,9 @@ if (WITH_DCACHE_RSC_TABLE)
 endif (WITH_DCACHE_RSC_TABLE)
 
 # Set the complication flags
-set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra")
+if (NOT DEFINED WITH_NO_PROJECT_EC)
+  set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra")
+endif (NOT DEFINED WITH_NO_PROJECT_EC)
 
 option (WITH_STATIC_LIB "Build with a static library" ON)
 
