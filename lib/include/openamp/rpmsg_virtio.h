@@ -32,6 +32,7 @@ extern "C" {
 #define VIRTIO_RPMSG_F_ACK	1 /* RP supports name service acknowledge */
 #define VIRTIO_RPMSG_F_BUFSZ	2 /* RP supports get buffer size from config space */
 #define VIRTIO_RPMSG_F_CPUNAME	3 /* RP supports get local and peer cpu name */
+#define VIRTIO_RPMSG_F_BUFADDR	4 /* RP supports get buffer address from config space */
 
 #ifdef VIRTIO_CACHED_BUFFERS
 #warning "VIRTIO_CACHED_BUFFERS is deprecated, please use VIRTIO_USE_DCACHE"

@@ -372,6 +372,12 @@ struct fw_rsc_config {
 	/** The remote to host buffer size (if VIRTIO_RPMSG_F_BUFSZ) */
 	uint32_t r2h_buf_size;
 
+	/** The host physical address (if VIRTIO_RPMSG_F_BUFADDR) */
+	uint64_t h2r_buf_addr;
+
+	/** The remote physical address (if VIRTIO_RPMSG_F_BUFADDR) */
+	uint64_t r2h_buf_addr;
+
 	/* The host side cpu name (if VIRTIO_RPMSG_F_CPUNAME) */
 
 	uint8_t host_cpuname[VIRTIO_RPMSG_CPUNAME_SIZE];
@@ -382,7 +388,7 @@ struct fw_rsc_config {
 
 	/* Reserve for the future use */
 
-	uint32_t reserved[10];
+	uint32_t reserved[6];
 
 	/** Put the customize config here */
 } METAL_PACKED_END;
