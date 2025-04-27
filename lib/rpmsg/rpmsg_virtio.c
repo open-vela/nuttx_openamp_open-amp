@@ -615,7 +615,12 @@ static void rpmsg_virtio_rx_callback(struct virtqueue *vq)
 		if (status != RPMSG_SUCCESS_BUFFER_RELEASED &&
 		    rpmsg_virtio_buf_held_dec_test(rp_hdr)) {
 			rpmsg_virtio_release_rx_buffer_nolock(rvdev, rp_hdr);
-			release = true;
+			if (VIRTIO_ENABLED(VQ_RX_EMPTY_NOTIFY))
+				/* Kick will be sent only when last buffer is released */
+				release = true;
+			else
+				/* Tell peer we returned an rx buffer */
+				virtqueue_kick(rvdev->rvq);
 		}
 	}
 
