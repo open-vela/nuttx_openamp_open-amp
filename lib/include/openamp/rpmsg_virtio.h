@@ -301,6 +301,39 @@ static inline int rpmsg_virtio_get_buffer_size(struct rpmsg_device *rdev)
 }
 
 /**
+ * @brief Release rpmsg virtio Rx buffer
+ *
+ * @param rvdev		Pointer to the rpmsg virtio device
+ * @param rp_hdr	Pointer to rpmsg buffer header
+ *
+ * @return true indicates this buffer is released.
+ */
+bool rpmsg_virtio_release_rx_buffer_nolock(struct rpmsg_virtio_device *rvdev,
+					   struct rpmsg_hdr *rp_hdr);
+
+/**
+ * @brief Check whether rpmsg buffer needs to be released or not
+ *
+ * @param rp_hdr	Pointer to rpmsg buffer header
+ *
+ * @return true indicates this buffer needs to be released
+ */
+bool rpmsg_virtio_buf_held_dec_test(struct rpmsg_hdr *rp_hdr);
+
+/**
+ * @brief Retrieves the received buffer from the virtqueue.
+ *
+ * @param rvdev	Pointer to rpmsg device
+ * @param len	Size of received buffer
+ * @param idx	Index of buffer
+ * @param last	Indicates whether this is the last buffer
+ *
+ * @return Pointer to received buffer
+ */
+void *rpmsg_virtio_get_rx_buffer(struct rpmsg_virtio_device *rvdev,
+				 uint32_t *len, uint16_t *idx, bool *last);
+
+/**
  * @brief Initialize rpmsg virtio device
  *
  * Host side:
