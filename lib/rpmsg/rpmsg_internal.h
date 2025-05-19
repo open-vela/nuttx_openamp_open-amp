@@ -32,6 +32,25 @@ extern "C" {
 #define RPMSG_BUF_HELD_SHIFT 16
 #define RPMSG_BUF_HELD_MASK  (0xFFFFU << RPMSG_BUF_HELD_SHIFT)
 
+/*
+ * Get the buffer held counter value.
+ * If 0 the buffer can be released
+ */
+#define RPMSG_BUF_HELD_COUNTER(rp_hdr)          \
+	(((rp_hdr)->reserved & RPMSG_BUF_HELD_MASK) >> RPMSG_BUF_HELD_SHIFT)
+
+/* Increase buffer held counter */
+#define RPMSG_BUF_HELD_INC(rp_hdr)              \
+	((rp_hdr)->reserved += 1 << RPMSG_BUF_HELD_SHIFT)
+
+/* Decrease buffer held counter */
+#define RPMSG_BUF_HELD_DEC(rp_hdr)              \
+	((rp_hdr)->reserved -= 1 << RPMSG_BUF_HELD_SHIFT)
+
+/* Get the buffer index */
+#define RPMSG_BUF_INDEX(rphdr)                  \
+	((uint16_t)((rp_hdr)->reserved & ~RPMSG_BUF_HELD_MASK))
+
 #define RPMSG_LOCATE_HDR(p) \
 	((struct rpmsg_hdr *)((unsigned char *)(p) - sizeof(struct rpmsg_hdr)))
 #define RPMSG_LOCATE_DATA(p) ((unsigned char *)(p) + sizeof(struct rpmsg_hdr))
