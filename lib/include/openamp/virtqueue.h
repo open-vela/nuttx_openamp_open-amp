@@ -173,6 +173,7 @@ typedef void (*vq_notify)(struct virtqueue *);
 		if (!(_exp)) { \
 			metal_log(METAL_LOG_EMERGENCY, \
 				  "%s: %s - "_msg, __func__, (_vq)->vq_name); \
+			virtqueue_dump(_vq); \
 			metal_assert(_exp); \
 		} \
 	} while (0)
