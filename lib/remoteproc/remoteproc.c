@@ -288,6 +288,8 @@ int remoteproc_shutdown(struct remoteproc *rproc)
 					ret = rproc->ops->stop(rproc);
 			}
 			if (!ret) {
+				rproc->state = RPROC_STOPPED;
+				rproc->bitmap = 0;
 				if (rproc->ops->shutdown)
 					ret = rproc->ops->shutdown(rproc);
 				if (!ret) {
