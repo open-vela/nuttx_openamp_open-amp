@@ -27,8 +27,10 @@ static void rproc_virtio_delete_virtqueues(struct virtio_device *vdev)
 
 	for (i = 0; i < vdev->vrings_num; i++) {
 		vring_info = &vdev->vrings_info[i];
-		if (vring_info->vq)
+		if (vring_info->vq) {
 			virtqueue_free(vring_info->vq);
+			vring_info->vq = NULL;
+		}
 	}
 }
 
