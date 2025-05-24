@@ -10,6 +10,7 @@
 #include <internal/utilities.h>
 #include <openamp/rpmsg.h>
 #include <metal/alloc.h>
+#include <metal/sys.h>
 
 #include "rpmsg_internal.h"
 
@@ -128,10 +129,15 @@ int rpmsg_send_offchannel_raw(struct rpmsg_endpoint *ept, uint32_t src,
 
 	rdev = ept->rdev;
 
-	if (rdev->ops.send_offchannel_raw)
+	if (rdev->ops.send_offchannel_raw) {
+		metal_trace(ept->name, "send ept:%p, name:%s, cb:%p, buf:%p, "
+			    "rdev:%p, src:%x, dst:%x, len:%d\n",
+			    ept, ept->name, ept->cb, data, rdev, src, dst, len);
+		metal_trace_binary(ept->name, data, len);
 		return rdev->ops.send_offchannel_raw(rdev, src, dst, data,
 						     len, wait,
 						     ept->priority);
+	}
 
 	return RPMSG_ERR_PARAM;
 }
@@ -188,8 +194,12 @@ int rpmsg_release_tx_buffer(struct rpmsg_endpoint *ept, void *buf)
 
 	rdev = ept->rdev;
 
-	if (rdev->ops.release_tx_buffer)
+	if (rdev->ops.release_tx_buffer) {
+		metal_trace(ept->name,
+			    "release tx buffer ept:%p, name:%s, cb:%p, buf:%p, rdev:%p",
+			    ept, ept->name, ept->cb, buf, rdev);
 		return rdev->ops.release_tx_buffer(rdev, buf);
+	}
 
 	return RPMSG_ERR_PERM;
 }
@@ -198,15 +208,24 @@ void *rpmsg_get_tx_payload_buffer(struct rpmsg_endpoint *ept,
 				  uint32_t *len, int wait)
 {
 	struct rpmsg_device *rdev;
+	void *buf;
 
 	if (!ept || !ept->rdev || !len)
 		return NULL;
 
 	rdev = ept->rdev;
 
-	if (rdev->ops.get_tx_payload_buffer)
-		return rdev->ops.get_tx_payload_buffer(rdev, len, wait,
-						       ept->priority);
+	if (rdev->ops.get_tx_payload_buffer) {
+		buf = rdev->ops.get_tx_payload_buffer(rdev, len, wait,
+						      ept->priority);
+		if (buf) {
+			metal_trace(ept->name,
+				    "get tx buffer ept:%p, name:%s, cb:%p, buf:%p, rdev:%p",
+				    ept, ept->name, ept->cb, buf, rdev);
+		}
+
+		return buf;
+	}
 
 	return NULL;
 }
@@ -251,9 +270,14 @@ int rpmsg_send_offchannel_nocopy(struct rpmsg_endpoint *ept, uint32_t src,
 
 	rdev = ept->rdev;
 
-	if (rdev->ops.send_offchannel_nocopy)
+	if (rdev->ops.send_offchannel_nocopy) {
+		metal_trace(ept->name, "send nocopy ept:%p, name:%s, cb:%p, buf:%p, "
+			    "rdev:%p, src:%d, dst:%d, len:%d",
+			    ept, ept->name, ept->cb, data, rdev, src, dst, len);
+		metal_trace_binary(ept->name, data, len);
 		return rdev->ops.send_offchannel_nocopy(rdev, src, dst,
 							data, len);
+	}
 
 	return RPMSG_ERR_PARAM;
 }
