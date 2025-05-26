@@ -216,21 +216,24 @@ static void *rpmsg_virtio_get_tx_buffer(struct rpmsg_virtio_device *rvdev,
  * @param rvdev	Pointer to rpmsg device
  * @param len	Size of received buffer
  * @param idx	Index of buffer
+ * @param last	Indicates whether this is the last buffer
  *
  * @return Pointer to received buffer
  */
 static void *rpmsg_virtio_get_rx_buffer(struct rpmsg_virtio_device *rvdev,
-					uint32_t *len, uint16_t *idx)
+					uint32_t *len, uint16_t *idx, bool *last)
 {
 	void *data = NULL;
 
 	if (VIRTIO_ROLE_IS_DRIVER(rvdev->vdev)) {
 		data = virtqueue_get_buffer(rvdev->rvq, len, idx);
+		*last = virtqueue_nused(rvdev->rvq) == 0;
 	}
 
 	if (VIRTIO_ROLE_IS_DEVICE(rvdev->vdev)) {
 		data =
 		    virtqueue_get_available_buffer(rvdev->rvq, idx, len);
+		*last = virtqueue_navail(rvdev->rvq) == 0;
 	}
 
 	/* Invalidate the buffer before returning it */
@@ -556,12 +559,13 @@ static void rpmsg_virtio_rx_callback(struct virtqueue *vq)
 	uint32_t len;
 	uint16_t idx;
 	bool release = false;
+	bool last = false;
 	int status;
 
 	metal_mutex_acquire(&rdev->lock);
-	while (1) {
+	while (!last) {
 		/* Process the received data from remote node */
-		rp_hdr = rpmsg_virtio_get_rx_buffer(rvdev, &len, &idx);
+		rp_hdr = rpmsg_virtio_get_rx_buffer(rvdev, &len, &idx, &last);
 		if (!rp_hdr)
 			break;
 
