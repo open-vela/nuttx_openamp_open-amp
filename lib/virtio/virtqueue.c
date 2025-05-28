@@ -360,13 +360,17 @@ uint32_t virtqueue_get_desc_size(struct virtqueue *vq)
  */
 int virtqueue_nused(struct virtqueue *vq)
 {
-	uint16_t used_idx, nused;
+	uint16_t used_idx, nused, used_cons_idx;
 
 	/* Used is written by remote */
 	VRING_INVALIDATE(&vq->vq_ring.used->idx, sizeof(vq->vq_ring.used->idx));
 	used_idx = vq->vq_ring.used->idx;
+	used_cons_idx = vq->vq_used_cons_idx;
 
-	nused = (uint16_t)(used_idx - vq->vq_used_cons_idx);
+	nused = (uint16_t)(used_idx - used_cons_idx);
+	if (nused > vq->vq_nentries)
+		metal_err("vq->vq_nentries=%u nused=%u used_idx=%u used_cons_idx=%u\n",
+			  vq->vq_nentries, nused, used_idx, used_cons_idx);
 	VQASSERT(vq, nused <= vq->vq_nentries, "used more than available");
 
 	return nused;
