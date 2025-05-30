@@ -75,6 +75,12 @@ struct rpmsg_virtio_config {
 
 	/** The flag for splitting shared memory pool to TX and RX */
 	bool split_shpool;
+
+	/** The callback for rpmsg virtio rx virtqueue */
+	vq_callback rx_callback;
+
+	/** The callback for rpmsg virtio tx virtqueue */
+	vq_callback tx_callback;
 };
 
 /** @brief Representation of a RPMsg device based on virtio */

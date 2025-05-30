@@ -829,15 +829,19 @@ int rpmsg_init_vdev_with_config(struct rpmsg_virtio_device *rvdev,
 	if (VIRTIO_ROLE_IS_DRIVER(vdev)) {
 		vq_names[0] = "rx_vq";
 		vq_names[1] = "tx_vq";
-		callback[0] = rpmsg_virtio_rx_callback;
-		callback[1] = rpmsg_virtio_tx_callback;
+		callback[0] = config->rx_callback ? config->rx_callback :
+						    rpmsg_virtio_rx_callback;
+		callback[1] = config->tx_callback ? config->tx_callback :
+						    rpmsg_virtio_tx_callback;
 	}
 
 	if (VIRTIO_ROLE_IS_DEVICE(vdev)) {
 		vq_names[0] = "tx_vq";
 		vq_names[1] = "rx_vq";
-		callback[0] = rpmsg_virtio_tx_callback;
-		callback[1] = rpmsg_virtio_rx_callback;
+		callback[0] = config->tx_callback ? config->tx_callback :
+						    rpmsg_virtio_tx_callback;
+		callback[1] = config->rx_callback ? config->rx_callback :
+						    rpmsg_virtio_rx_callback;
 	}
 
 	rvdev->shbuf_io = shm_io;
