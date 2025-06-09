@@ -33,6 +33,13 @@ extern "C" {
  */
 #define VRING_AVAIL_F_NO_INTERRUPT      1
 
+/* Alignment requirements for vring elements.
+ * When using pre-virtio 1.0 layout, these fall out naturally.
+ */
+#define VRING_AVAIL_ALIGN_SIZE 2
+#define VRING_USED_ALIGN_SIZE 4
+#define VRING_DESC_ALIGN_SIZE 16
+
 /**
  * @brief VirtIO ring descriptors.
  *
@@ -43,7 +50,6 @@ extern "C" {
  * chain of descriptors can contain both device-readable and device-writable
  * buffers.
  */
-METAL_PACKED_BEGIN
 struct vring_desc {
 	/** Address (guest-physical) */
 	uint64_t addr;
@@ -56,7 +62,7 @@ struct vring_desc {
 
 	/** We chain unused descriptors via this, too */
 	uint16_t next;
-} METAL_PACKED_END;
+};
 
 /**
  * @brief Used to offer buffers to the device.
@@ -64,7 +70,6 @@ struct vring_desc {
  * Each ring entry refers to the head of a descriptor chain. It is only
  * written by the driver and read by the device.
  */
-METAL_PACKED_BEGIN
 struct vring_avail {
 	/** Flag which determines whether device notifications are required */
 	uint16_t flags;
@@ -77,10 +82,9 @@ struct vring_avail {
 
 	/** The ring of descriptors */
 	uint16_t ring[0];
-} METAL_PACKED_END;
+};
 
 /* uint32_t is used here for ids for padding reasons. */
-METAL_PACKED_BEGIN
 struct vring_used_elem {
 	union {
 		uint16_t event;
@@ -89,14 +93,15 @@ struct vring_used_elem {
 	};
 	/* Total length of the descriptor chain which was written to. */
 	uint32_t len;
-} METAL_PACKED_END;
+};
+
+typedef struct vring_used_elem metal_align(VRING_USED_ALIGN_SIZE) vring_used_elem_t;
 
 /**
  * @brief The device returns buffers to this structure when done with them
  *
  * The structure is only written to by the device, and read by the driver.
  */
-METAL_PACKED_BEGIN
 struct vring_used {
 	/** Flag which determines whether device notifications are required */
 	uint16_t flags;
@@ -108,8 +113,26 @@ struct vring_used {
 	uint16_t idx;
 
 	/** The ring of descriptors */
-	struct vring_used_elem ring[0];
-} METAL_PACKED_END;
+	vring_used_elem_t ring[0];
+};
+
+/*
+ * The ring element addresses are passed between components with different
+ * alignments assumptions. Thus, we might need to decrease the compiler-selected
+ * alignment, and so must use a typedef to make sure the aligned attribute
+ * actually takes hold:
+ *
+ * https://gcc.gnu.org/onlinedocs//gcc/Common-Type-Attributes.html#Common-Type-Attributes
+ *
+ * When used on a struct, or struct member, the aligned attribute can only
+ * increase the alignment; in order to decrease it, the packed attribute must
+ * be specified as well. When used as part of a typedef, the aligned attribute
+ * can both increase and decrease alignment, and specifying the packed
+ * attribute generates a warning.
+ */
+typedef struct vring_desc metal_align(VRING_DESC_ALIGN_SIZE) vring_desc_t;
+typedef struct vring_avail metal_align(VRING_AVAIL_ALIGN_SIZE) vring_avail_t;
+typedef struct vring_used metal_align(VRING_USED_ALIGN_SIZE) vring_used_t;
 
 /**
  * @brief The virtqueue layout structure
@@ -156,13 +179,13 @@ struct vring {
 	unsigned int num;
 
 	/** The actual buffer descriptors, 16 bytes each */
-	struct vring_desc *desc;
+	vring_desc_t *desc;
 
 	/** A ring of available descriptor heads with free-running index */
-	struct vring_avail *avail;
+	vring_avail_t *avail;
 
 	/** A ring of used descriptor heads with free-running index */
-	struct vring_used *used;
+	vring_used_t *used;
 };
 
 /*
