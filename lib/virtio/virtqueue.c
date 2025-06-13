@@ -153,18 +153,20 @@ void *virtqueue_get_buffer(struct virtqueue *vq, uint32_t *len, uint16_t *idx)
 
 uint32_t virtqueue_get_buffer_length(struct virtqueue *vq, uint16_t idx)
 {
+	struct vring_desc *desc = &vq->vq_ring.desc[idx];
+
 	/* Invalidate the desc entry written by driver before accessing it */
-	VRING_INVALIDATE(&vq->vq_ring.desc[idx].len,
-			 sizeof(vq->vq_ring.desc[idx].len));
-	return vq->vq_ring.desc[idx].len;
+	VRING_INVALIDATE(&desc->len, sizeof(desc->len));
+	return desc->len;
 }
 
 void *virtqueue_get_buffer_addr(struct virtqueue *vq, uint16_t idx)
 {
+	struct vring_desc *desc = &vq->vq_ring.desc[idx];
+
 	/* Invalidate the desc entry written by driver before accessing it */
-	VRING_INVALIDATE(&vq->vq_ring.desc[idx].addr,
-			 sizeof(vq->vq_ring.desc[idx].addr));
-	return virtqueue_phys_to_virt(vq, vq->vq_ring.desc[idx].addr);
+	VRING_INVALIDATE(&desc->addr, sizeof(desc->addr));
+	return virtqueue_phys_to_virt(vq, desc->addr);
 }
 
 void virtqueue_free(struct virtqueue *vq)
@@ -509,11 +511,12 @@ static void vq_ring_init(struct virtqueue *vq, void *ring_mem, int alignment)
 	vring_init(vr, size, ring_mem, alignment);
 
 	if (VIRTIO_ROLE_IS_DRIVER(vq->vq_dev)) {
+		struct vring_desc *desc = vr->desc;
 		int i;
 
 		for (i = 0; i < size - 1; i++)
-			vr->desc[i].next = i + 1;
-		vr->desc[i].next = VQ_RING_DESC_CHAIN_END;
+			desc[i].next = i + 1;
+		desc[i].next = VQ_RING_DESC_CHAIN_END;
 	}
 }
 
