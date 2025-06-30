@@ -56,6 +56,7 @@ extern "C" {
 #define RPMSG_PRIO_MIN			0
 #define RPMSG_PRIO_DEFAULT		127
 #define RPMSG_PRIO_MAX			255
+#define RPMSG_PRIO_RT			RPMSG_PRIO_MAX
 
 struct rpmsg_hdr;
 struct rpmsg_endpoint;
