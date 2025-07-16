@@ -137,10 +137,9 @@ int rpmsg_send_offchannel_raw(struct rpmsg_endpoint *ept, uint32_t src,
 	rdev = ept->rdev;
 
 	if (rdev->ops.send_offchannel_raw) {
-		metal_trace(ept->name, "send ept:%p, name:%s, cb:%p, buf:%p, "
-			    "rdev:%p, src:%x, dst:%x, len:%d\n",
-			    ept, ept->name, ept->cb, data, rdev, src, dst, len);
-		metal_trace_binary(ept->name, data, len);
+		metal_trace(ept->name, data, len, "send ept:%p name:%s "
+			    "cb:%p rdev:%p src:%d dst:%d data:%p len:%d",
+			    ept, ept->name, ept->cb, rdev, src, dst, data, len);
 		return rdev->ops.send_offchannel_raw(rdev, src, dst, data,
 						     len, wait,
 						     ept->priority);
@@ -202,8 +201,8 @@ int rpmsg_release_tx_buffer(struct rpmsg_endpoint *ept, void *buf)
 	rdev = ept->rdev;
 
 	if (rdev->ops.release_tx_buffer) {
-		metal_trace(ept->name,
-			    "release tx buffer ept:%p, name:%s, cb:%p, buf:%p, rdev:%p",
+		metal_trace(ept->name, NULL, 0,
+			    "release tx buffer ept:%p name:%s cb:%p buf:%p rdev:%p",
 			    ept, ept->name, ept->cb, buf, rdev);
 		return rdev->ops.release_tx_buffer(rdev, buf);
 	}
@@ -226,8 +225,8 @@ void *rpmsg_get_tx_payload_buffer(struct rpmsg_endpoint *ept,
 		buf = rdev->ops.get_tx_payload_buffer(rdev, len, wait,
 						      ept->priority);
 		if (buf) {
-			metal_trace(ept->name,
-				    "get tx buffer ept:%p, name:%s, cb:%p, buf:%p, rdev:%p",
+			metal_trace(ept->name, NULL, 0,
+				    "get tx buffer ept:%p name:%s cb:%p buf:%p rdev:%p",
 				    ept, ept->name, ept->cb, buf, rdev);
 		}
 
@@ -278,10 +277,9 @@ int rpmsg_send_offchannel_nocopy(struct rpmsg_endpoint *ept, uint32_t src,
 	rdev = ept->rdev;
 
 	if (rdev->ops.send_offchannel_nocopy) {
-		metal_trace(ept->name, "send nocopy ept:%p, name:%s, cb:%p, buf:%p, "
-			    "rdev:%p, src:%d, dst:%d, len:%d",
-			    ept, ept->name, ept->cb, data, rdev, src, dst, len);
-		metal_trace_binary(ept->name, data, len);
+		metal_trace(ept->name, data, len, "send ept:%p name:%s "
+			    "cb:%p rdev:%p src:%d dst:%d data:%p len:%d",
+			    ept, ept->name, ept->cb, rdev, src, dst, data, len);
 		return rdev->ops.send_offchannel_nocopy(rdev, src, dst,
 							data, len);
 	}
