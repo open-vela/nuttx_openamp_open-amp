@@ -501,8 +501,8 @@ static void rpmsg_virtio_rx_callback(struct virtqueue *vq)
 			status = RPMSG_SUCCESS;
 		}
 
-		metal_mutex_acquire(&rdev->lock);
 		rpmsg_ept_decref(ept);
+		metal_mutex_acquire(&rdev->lock);
 		if (status != RPMSG_SUCCESS_BUFFER_RELEASED &&
 		    rpmsg_virtio_buf_held_dec_test(rp_hdr)) {
 			rpmsg_virtio_release_rx_buffer_nolock(rvdev, rp_hdr);
@@ -586,11 +586,8 @@ static int rpmsg_virtio_ns_callback(struct rpmsg_endpoint *ept, void *data,
 			_ept->ns_unbind_cb(_ept);
 		if (rdev->ns_unbind_cb)
 			rdev->ns_unbind_cb(rdev, ns_msg.name, dest);
-		if (ept_to_release) {
-			metal_mutex_acquire(&rdev->lock);
+		if (ept_to_release)
 			rpmsg_ept_decref(_ept);
-			metal_mutex_release(&rdev->lock);
-		}
 	} else if (ns_msg.flags == RPMSG_NS_CREATE) {
 		if (!_ept) {
 			/*
