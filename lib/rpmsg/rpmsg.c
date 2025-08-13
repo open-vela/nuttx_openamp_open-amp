@@ -70,11 +70,13 @@ static void rpmsg_release_address(unsigned long *bitmap, int size,
  */
 static int rpmsg_is_address_set(unsigned long *bitmap, int size, int addr)
 {
+	int ret = RPMSG_ERR_PARAM;
+
 	addr -= RPMSG_RESERVED_ADDRESSES;
 	if (addr >= 0 && addr < size)
-		return metal_bitmap_is_bit_set(bitmap, addr);
-	else
-		return RPMSG_ERR_PARAM;
+		ret = metal_bitmap_is_bit_set(bitmap, addr);
+
+	return ret;
 }
 
 /**
@@ -90,13 +92,15 @@ static int rpmsg_is_address_set(unsigned long *bitmap, int size, int addr)
  */
 static int rpmsg_set_address(unsigned long *bitmap, int size, int addr)
 {
+	int ret = RPMSG_ERR_PARAM;
+
 	addr -= RPMSG_RESERVED_ADDRESSES;
 	if (addr >= 0 && addr < size) {
 		metal_bitmap_set_bit(bitmap, addr);
-		return RPMSG_SUCCESS;
-	} else {
-		return RPMSG_ERR_PARAM;
+		ret = RPMSG_SUCCESS;
 	}
+
+	return ret;
 }
 
 void rpmsg_ept_incref(struct rpmsg_endpoint *ept)
@@ -130,22 +134,20 @@ int rpmsg_send_offchannel_raw(struct rpmsg_endpoint *ept, uint32_t src,
 			      int wait)
 {
 	struct rpmsg_device *rdev;
+	int ret = RPMSG_ERR_PARAM;
 
-	if (!ept || !ept->rdev || !data || dst == RPMSG_ADDR_ANY || len < 0)
-		return RPMSG_ERR_PARAM;
-
-	rdev = ept->rdev;
-
-	if (rdev->ops.send_offchannel_raw) {
-		metal_trace(ept->name, data, len, "send ept:%p name:%s "
-			    "cb:%p rdev:%p src:%d dst:%d data:%p len:%d",
-			    ept, ept->name, ept->cb, rdev, src, dst, data, len);
-		return rdev->ops.send_offchannel_raw(rdev, src, dst, data,
-						     len, wait,
-						     ept->priority);
+	if (ept && ept->rdev && data && dst != RPMSG_ADDR_ANY && len >= 0) {
+		rdev = ept->rdev;
+		if (rdev->ops.send_offchannel_raw) {
+			metal_trace(ept->name, data, len, "send ept:%p name:%s "
+				    "cb:%p rdev:%p src:%d dst:%d data:%p len:%d",
+				    ept, ept->name, ept->cb, rdev, src, dst, data, len);
+			ret = rdev->ops.send_offchannel_raw(rdev, src, dst, data,
+							    len, wait, ept->priority);
+		}
 	}
 
-	return RPMSG_ERR_PARAM;
+	return ret;
 }
 
 int rpmsg_send_ns_message(struct rpmsg_endpoint *ept, unsigned long flags)
@@ -159,140 +161,131 @@ int rpmsg_send_ns_message(struct rpmsg_endpoint *ept, unsigned long flags)
 	ret = rpmsg_send_offchannel_raw(ept, ept->addr,
 					RPMSG_NS_EPT_ADDR,
 					&ns_msg, sizeof(ns_msg), true);
-	if (ret < 0)
-		return ret;
-	else
-		return RPMSG_SUCCESS;
+	if (ret >= 0)
+		ret = RPMSG_SUCCESS;
+
+	return ret;
 }
 
 void rpmsg_hold_rx_buffer(struct rpmsg_endpoint *ept, void *rxbuf)
 {
 	struct rpmsg_device *rdev;
 
-	if (!ept || !ept->rdev || !rxbuf)
-		return;
-
-	rdev = ept->rdev;
-
-	if (rdev->ops.hold_rx_buffer)
-		rdev->ops.hold_rx_buffer(rdev, rxbuf);
+	if (ept && ept->rdev && rxbuf) {
+		rdev = ept->rdev;
+		if (rdev->ops.hold_rx_buffer)
+			rdev->ops.hold_rx_buffer(rdev, rxbuf);
+	}
 }
 
 void rpmsg_release_rx_buffer(struct rpmsg_endpoint *ept, void *rxbuf)
 {
 	struct rpmsg_device *rdev;
 
-	if (!ept || !ept->rdev || !rxbuf)
-		return;
-
-	rdev = ept->rdev;
-
-	if (rdev->ops.release_rx_buffer)
-		rdev->ops.release_rx_buffer(rdev, rxbuf);
+	if (ept && ept->rdev && rxbuf) {
+		rdev = ept->rdev;
+		if (rdev->ops.release_rx_buffer)
+			rdev->ops.release_rx_buffer(rdev, rxbuf);
+	}
 }
 
 int rpmsg_release_tx_buffer(struct rpmsg_endpoint *ept, void *buf)
 {
 	struct rpmsg_device *rdev;
+	int ret = RPMSG_ERR_PARAM;
 
-	if (!ept || !ept->rdev || !buf)
-		return RPMSG_ERR_PARAM;
-
-	rdev = ept->rdev;
-
-	if (rdev->ops.release_tx_buffer) {
-		metal_trace(ept->name, NULL, 0,
-			    "release tx buffer ept:%p name:%s cb:%p buf:%p rdev:%p",
-			    ept, ept->name, ept->cb, buf, rdev);
-		return rdev->ops.release_tx_buffer(rdev, buf);
+	if (ept && ept->rdev && buf) {
+		rdev = ept->rdev;
+		if (rdev->ops.release_tx_buffer) {
+			metal_trace(ept->name, NULL, 0,
+				    "release tx buffer ept:%p name:%s cb:%p buf:%p rdev:%p",
+				    ept, ept->name, ept->cb, buf, rdev);
+			ret = rdev->ops.release_tx_buffer(rdev, buf);
+		}
 	}
 
-	return RPMSG_ERR_PERM;
+	return ret;
 }
 
 void *rpmsg_get_tx_payload_buffer(struct rpmsg_endpoint *ept,
 				  uint32_t *len, int wait)
 {
 	struct rpmsg_device *rdev;
-	void *buf;
+	void *buf = NULL;
 
-	if (!ept || !ept->rdev || !len)
-		return NULL;
-
-	rdev = ept->rdev;
-
-	if (rdev->ops.get_tx_payload_buffer) {
-		buf = rdev->ops.get_tx_payload_buffer(rdev, len, wait,
-						      ept->priority);
-		if (buf) {
-			metal_trace(ept->name, NULL, 0,
-				    "get tx buffer ept:%p name:%s cb:%p buf:%p rdev:%p",
-				    ept, ept->name, ept->cb, buf, rdev);
+	if (ept && ept->rdev && len) {
+		rdev = ept->rdev;
+		if (rdev->ops.get_tx_payload_buffer) {
+			buf = rdev->ops.get_tx_payload_buffer(rdev, len, wait,
+							      ept->priority);
+			if (buf) {
+				metal_trace(ept->name, NULL, 0, "get tx buffer ept:%p "
+					    "name:%s cb:%p buf:%p rdev:%p",
+					    ept, ept->name, ept->cb, buf, rdev);
+			}
 		}
-
-		return buf;
 	}
 
-	return NULL;
+	return buf;
 }
 
 int rpmsg_get_tx_buffer_size(struct rpmsg_endpoint *ept)
 {
 	struct rpmsg_device *rdev;
+	int ret = RPMSG_ERR_PARAM;
 
-	if (!ept || !ept->rdev)
-		return RPMSG_ERR_PARAM;
+	if (ept && ept->rdev) {
+		rdev = ept->rdev;
+		if (rdev->ops.get_tx_buffer_size)
+			ret = rdev->ops.get_tx_buffer_size(rdev);
+		else
+			ret = RPMSG_EOPNOTSUPP;
+	}
 
-	rdev = ept->rdev;
-
-	if (rdev->ops.get_tx_buffer_size)
-		return rdev->ops.get_tx_buffer_size(rdev);
-
-	return RPMSG_EOPNOTSUPP;
+	return ret;
 }
 
 int rpmsg_get_rx_buffer_size(struct rpmsg_endpoint *ept)
 {
 	struct rpmsg_device *rdev;
+	int ret = RPMSG_ERR_PARAM;
 
-	if (!ept || !ept->rdev)
-		return RPMSG_ERR_PARAM;
+	if (ept && ept->rdev) {
+		rdev = ept->rdev;
+		if (rdev->ops.get_rx_buffer_size)
+			ret = rdev->ops.get_rx_buffer_size(rdev);
+		else
+			ret = RPMSG_EOPNOTSUPP;
+	}
 
-	rdev = ept->rdev;
-
-	if (rdev->ops.get_rx_buffer_size)
-		return rdev->ops.get_rx_buffer_size(rdev);
-
-	return RPMSG_EOPNOTSUPP;
+	return ret;
 }
 
 int rpmsg_send_offchannel_nocopy(struct rpmsg_endpoint *ept, uint32_t src,
 				 uint32_t dst, const void *data, int len)
 {
 	struct rpmsg_device *rdev;
+	int ret = RPMSG_ERR_PARAM;
 
-	if (!ept || !ept->rdev || !data || dst == RPMSG_ADDR_ANY || len < 0)
-		return RPMSG_ERR_PARAM;
-
-	rdev = ept->rdev;
-
-	if (rdev->ops.send_offchannel_nocopy) {
-		metal_trace(ept->name, data, len, "send ept:%p name:%s "
-			    "cb:%p rdev:%p src:%d dst:%d data:%p len:%d",
-			    ept, ept->name, ept->cb, rdev, src, dst, data, len);
-		return rdev->ops.send_offchannel_nocopy(rdev, src, dst,
-							data, len);
+	if (ept && ept->rdev && data && dst != RPMSG_ADDR_ANY && len >= 0) {
+		rdev = ept->rdev;
+		if (rdev->ops.send_offchannel_nocopy) {
+			metal_trace(ept->name, data, len, "send ept:%p name:%s "
+				    "cb:%p rdev:%p src:%d dst:%d data:%p len:%d",
+				    ept, ept->name, ept->cb, rdev, src, dst, data, len);
+			ret = rdev->ops.send_offchannel_nocopy(rdev, src, dst, data, len);
+		}
 	}
 
-	return RPMSG_ERR_PARAM;
+	return ret;
 }
 
 struct rpmsg_endpoint *rpmsg_get_endpoint(struct rpmsg_device *rdev,
 					  const char *name, uint32_t addr,
 					  uint32_t dest_addr)
 {
+	struct rpmsg_endpoint *ept = NULL;
 	struct metal_list *node;
-	struct rpmsg_endpoint *ept;
 
 	metal_list_for_each(&rdev->endpoints, node) {
 		int name_match = 0;
@@ -300,30 +293,35 @@ struct rpmsg_endpoint *rpmsg_get_endpoint(struct rpmsg_device *rdev,
 		ept = metal_container_of(node, struct rpmsg_endpoint, node);
 		/* try to get by local address only */
 		if (addr != RPMSG_ADDR_ANY && ept->addr == addr)
-			return ept;
+			break;
 		/* else use name service and destination address */
 		if (name)
 			name_match = !strncmp(ept->name, name,
 					      sizeof(ept->name));
-		if (!name || !name_match)
+		if (!name || !name_match) {
+			ept = NULL;
 			continue;
+		}
 		/* destination address is known, equal to ept remote address */
 		if (dest_addr != RPMSG_ADDR_ANY && ept->dest_addr == dest_addr)
-			return ept;
+			break;
 		/* ept is registered but not associated to remote ept */
 		if (addr == RPMSG_ADDR_ANY && ept->dest_addr == RPMSG_ADDR_ANY)
-			return ept;
+			break;
 	}
-	return NULL;
+	return ept;
 }
 
 int rpmsg_set_priority(FAR struct rpmsg_endpoint *ept, uint8_t priority)
 {
-	if (!ept)
-		return -EINVAL;
+	int ret = -EINVAL;
 
-	ept->priority = priority;
-	return 0;
+	if (ept) {
+		ept->priority = priority;
+		ret = 0;
+	}
+
+	return ret;
 }
 
 static void rpmsg_unregister_endpoint(struct rpmsg_endpoint *ept)
@@ -371,54 +369,49 @@ int rpmsg_create_ept(struct rpmsg_endpoint *ept, struct rpmsg_device *rdev,
 	int status = RPMSG_SUCCESS;
 	uint32_t addr = src;
 
-	if (!ept || !rdev || !cb)
-		return RPMSG_ERR_PARAM;
-
-	metal_mutex_acquire(&rdev->lock);
-	if (src == RPMSG_ADDR_ANY) {
-		addr = rpmsg_get_address(rdev->bitmap, rdev->bitnext, RPMSG_ADDR_BMP_SIZE);
-		if (addr == RPMSG_ADDR_ANY) {
-			status = RPMSG_ERR_ADDR;
-			goto ret_status;
-		}
-		rdev->bitnext = (addr + 1) % RPMSG_ADDR_BMP_SIZE;
-	} else if (src >= RPMSG_RESERVED_ADDRESSES) {
-		status = rpmsg_is_address_set(rdev->bitmap,
-					      RPMSG_ADDR_BMP_SIZE, src);
-		if (!status) {
-			/* Mark the address as used in the address bitmap. */
-			rpmsg_set_address(rdev->bitmap, RPMSG_ADDR_BMP_SIZE,
-					  src);
-		} else if (status > 0) {
-			status = RPMSG_ERR_ADDR;
-			goto ret_status;
+	if (ept && rdev && cb) {
+		metal_mutex_acquire(&rdev->lock);
+		if (src == RPMSG_ADDR_ANY) {
+			addr = rpmsg_get_address(rdev->bitmap, rdev->bitnext, RPMSG_ADDR_BMP_SIZE);
+			if (addr == RPMSG_ADDR_ANY) {
+				status = RPMSG_ERR_ADDR;
+			} else {
+				rdev->bitnext = (addr + 1) % RPMSG_ADDR_BMP_SIZE;
+			}
+		} else if (src >= RPMSG_RESERVED_ADDRESSES) {
+			status = rpmsg_is_address_set(rdev->bitmap, RPMSG_ADDR_BMP_SIZE, src);
+			if (!status) {
+				/* Mark the address as used in the address bitmap. */
+				rpmsg_set_address(rdev->bitmap, RPMSG_ADDR_BMP_SIZE, src);
+			} else if (status > 0) {
+				status = RPMSG_ERR_ADDR;
+			}
 		} else {
-			goto ret_status;
+			/* Skip check the address duplication in 0-1023:
+			 * 1.Trust the author of predefined service
+			 * 2.Simplify the tracking implementation
+			 */
 		}
-	} else {
-		/* Skip check the address duplication in 0-1023:
-		 * 1.Trust the author of predefined service
-		 * 2.Simplify the tracking implementation
-		 */
-	}
 
-	rpmsg_register_endpoint(rdev, ept, name, addr, dest, cb, unbind_cb, ept->priv);
-	metal_mutex_release(&rdev->lock);
+		if (!status) {
+			rpmsg_register_endpoint(rdev, ept, name, addr, dest, cb, unbind_cb, ept->priv);
+			metal_mutex_release(&rdev->lock);
 
-	/* Send NS announcement/acknowledge to remote processor */
-	if (ept->name[0] && rdev->support_ns &&
-	    ept->dest_addr == RPMSG_ADDR_ANY)
-		status = rpmsg_send_ns_message(ept, RPMSG_NS_CREATE);
-	else if (ept->name[0] && rdev->support_ack &&
-		 ept->dest_addr != RPMSG_ADDR_ANY)
-		status = rpmsg_send_ns_message(ept, RPMSG_NS_CREATE_ACK);
+			/* Send NS announcement/acknowledge to remote processor */
+			if (ept->name[0] && rdev->support_ns &&
+			    ept->dest_addr == RPMSG_ADDR_ANY)
+				status = rpmsg_send_ns_message(ept, RPMSG_NS_CREATE);
+			else if (ept->name[0] && rdev->support_ack &&
+				 ept->dest_addr != RPMSG_ADDR_ANY)
+				status = rpmsg_send_ns_message(ept, RPMSG_NS_CREATE_ACK);
 
-	if (status)
-		rpmsg_unregister_endpoint(ept);
-	return status;
+			if (status)
+				rpmsg_unregister_endpoint(ept);
+		} else
+			metal_mutex_release(&rdev->lock);
+	} else
+		status = RPMSG_ERR_PARAM;
 
-ret_status:
-	metal_mutex_release(&rdev->lock);
 	return status;
 }
 
@@ -426,13 +419,12 @@ void rpmsg_destroy_ept(struct rpmsg_endpoint *ept)
 {
 	struct rpmsg_device *rdev;
 
-	if (!ept || !ept->rdev)
-		return;
+	if (ept && ept->rdev) {
+		rdev = ept->rdev;
+		if (ept->name[0] && rdev->support_ns &&
+		    ept->addr >= RPMSG_RESERVED_ADDRESSES)
+			(void)rpmsg_send_ns_message(ept, RPMSG_NS_DESTROY);
+		rpmsg_unregister_endpoint(ept);
+	}
 
-	rdev = ept->rdev;
-
-	if (ept->name[0] && rdev->support_ns &&
-	    ept->addr >= RPMSG_RESERVED_ADDRESSES)
-		(void)rpmsg_send_ns_message(ept, RPMSG_NS_DESTROY);
-	rpmsg_unregister_endpoint(ept);
 }
