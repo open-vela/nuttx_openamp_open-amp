@@ -115,38 +115,37 @@ int virtqueue_add_buffer(struct virtqueue *vq, struct virtqueue_buf *buf_list,
 void *virtqueue_get_buffer(struct virtqueue *vq, uint32_t *len, uint16_t *idx)
 {
 	struct vring_used_elem *uep;
-	void *cookie;
 	uint16_t used_idx, desc_idx;
+	void *cookie = NULL;
 
 	/* Used.idx is updated by the virtio device, so we need to invalidate */
 	VRING_INVALIDATE(&vq->vq_ring.used->idx, sizeof(vq->vq_ring.used->idx));
 
-	if (!vq || vq->vq_used_cons_idx == vq->vq_ring.used->idx)
-		return NULL;
+	if (vq && vq->vq_used_cons_idx != vq->vq_ring.used->idx) {
+		VQUEUE_BUSY(vq);
 
-	VQUEUE_BUSY(vq);
+		used_idx = vq->vq_used_cons_idx++ & (vq->vq_nentries - 1);
+		uep = &vq->vq_ring.used->ring[used_idx];
 
-	used_idx = vq->vq_used_cons_idx++ & (vq->vq_nentries - 1);
-	uep = &vq->vq_ring.used->ring[used_idx];
+		atomic_thread_fence(memory_order_seq_cst);
 
-	atomic_thread_fence(memory_order_seq_cst);
+		/* Used.ring is written by remote, invalidate it */
+		VRING_INVALIDATE(&vq->vq_ring.used->ring[used_idx],
+				 sizeof(vq->vq_ring.used->ring[used_idx]));
 
-	/* Used.ring is written by remote, invalidate it */
-	VRING_INVALIDATE(&vq->vq_ring.used->ring[used_idx],
-			 sizeof(vq->vq_ring.used->ring[used_idx]));
+		desc_idx = (uint16_t)uep->u.id;
+		if (len)
+			*len = uep->len;
 
-	desc_idx = (uint16_t)uep->u.id;
-	if (len)
-		*len = uep->len;
+		vq_ring_free_chain(vq, desc_idx);
 
-	vq_ring_free_chain(vq, desc_idx);
+		cookie = vq->vq_descx[desc_idx].cookie;
+		vq->vq_descx[desc_idx].cookie = NULL;
 
-	cookie = vq->vq_descx[desc_idx].cookie;
-	vq->vq_descx[desc_idx].cookie = NULL;
-
-	if (idx)
-		*idx = used_idx;
-	VQUEUE_IDLE(vq);
+		if (idx)
+			*idx = used_idx;
+		VQUEUE_IDLE(vq);
+	}
 
 	return cookie;
 }
@@ -186,29 +185,29 @@ void *virtqueue_get_available_buffer(struct virtqueue *vq, uint16_t *avail_idx,
 				     uint32_t *len)
 {
 	uint16_t head_idx = 0;
-	void *buffer;
+	void *buffer = NULL;
 
 	atomic_thread_fence(memory_order_seq_cst);
 
 	/* Avail.idx is updated by driver, invalidate it */
 	VRING_INVALIDATE(&vq->vq_ring.avail->idx, sizeof(vq->vq_ring.avail->idx));
-	if (vq->vq_available_idx == vq->vq_ring.avail->idx) {
-		return NULL;
+
+	if (vq->vq_available_idx != vq->vq_ring.avail->idx) {
+		VQUEUE_BUSY(vq);
+
+		head_idx = vq->vq_available_idx++ & (vq->vq_nentries - 1);
+
+		/* Avail.ring is updated by driver, invalidate it */
+		VRING_INVALIDATE(&vq->vq_ring.avail->ring[head_idx],
+				 sizeof(vq->vq_ring.avail->ring[head_idx]));
+		*avail_idx = vq->vq_ring.avail->ring[head_idx];
+
+		buffer = virtqueue_get_buffer_addr(vq, *avail_idx);
+		*len = virtqueue_get_buffer_length(vq, *avail_idx);
+
+		VQUEUE_IDLE(vq);
 	}
 
-	VQUEUE_BUSY(vq);
-
-	head_idx = vq->vq_available_idx++ & (vq->vq_nentries - 1);
-
-	/* Avail.ring is updated by driver, invalidate it */
-	VRING_INVALIDATE(&vq->vq_ring.avail->ring[head_idx],
-			 sizeof(vq->vq_ring.avail->ring[head_idx]));
-	*avail_idx = vq->vq_ring.avail->ring[head_idx];
-
-	buffer = virtqueue_get_buffer_addr(vq, *avail_idx);
-	*len = virtqueue_get_buffer_length(vq, *avail_idx);
-
-	VQUEUE_IDLE(vq);
 
 	return buffer;
 }
@@ -218,36 +217,37 @@ int virtqueue_add_consumed_buffer(struct virtqueue *vq, uint16_t head_idx,
 {
 	struct vring_used_elem *used_desc = NULL;
 	uint16_t used_idx;
+	int ret = ERROR_VRING_NO_BUFF;
 
-	if (head_idx >= vq->vq_nentries) {
-		return ERROR_VRING_NO_BUFF;
+	if (head_idx < vq->vq_nentries) {
+		ret = VQUEUE_SUCCESS;
+
+		VQUEUE_BUSY(vq);
+
+		/* CACHE: used is never written by driver, so it's safe to directly access it */
+		used_idx = vq->vq_ring.used->idx & (vq->vq_nentries - 1);
+		used_desc = &vq->vq_ring.used->ring[used_idx];
+		used_desc->u.id = head_idx;
+		used_desc->len = len;
+
+		/* We still need to flush it because this is read by driver */
+		VRING_FLUSH(&vq->vq_ring.used->ring[used_idx],
+			    sizeof(vq->vq_ring.used->ring[used_idx]));
+
+		atomic_thread_fence(memory_order_seq_cst);
+
+		vq->vq_ring.used->idx++;
+
+		/* Used.idx is read by driver, so we need to flush it */
+		VRING_FLUSH(&vq->vq_ring.used->idx, sizeof(vq->vq_ring.used->idx));
+
+		/* Keep pending count until virtqueue_notify(). */
+		vq->vq_queued_cnt++;
+
+		VQUEUE_IDLE(vq);
 	}
 
-	VQUEUE_BUSY(vq);
-
-	/* CACHE: used is never written by driver, so it's safe to directly access it */
-	used_idx = vq->vq_ring.used->idx & (vq->vq_nentries - 1);
-	used_desc = &vq->vq_ring.used->ring[used_idx];
-	used_desc->u.id = head_idx;
-	used_desc->len = len;
-
-	/* We still need to flush it because this is read by driver */
-	VRING_FLUSH(&vq->vq_ring.used->ring[used_idx],
-		    sizeof(vq->vq_ring.used->ring[used_idx]));
-
-	atomic_thread_fence(memory_order_seq_cst);
-
-	vq->vq_ring.used->idx++;
-
-	/* Used.idx is read by driver, so we need to flush it */
-	VRING_FLUSH(&vq->vq_ring.used->idx, sizeof(vq->vq_ring.used->idx));
-
-	/* Keep pending count until virtqueue_notify(). */
-	vq->vq_queued_cnt++;
-
-	VQUEUE_IDLE(vq);
-
-	return VQUEUE_SUCCESS;
+	return ret;
 }
 
 int virtqueue_enable_cb(struct virtqueue *vq)
@@ -305,21 +305,21 @@ void virtqueue_kick(struct virtqueue *vq)
 
 void virtqueue_dump(struct virtqueue *vq)
 {
-	if (!vq)
-		return;
+	if (vq) {
+		VRING_INVALIDATE(&vq->vq_ring.avail, sizeof(vq->vq_ring.avail));
+		VRING_INVALIDATE(&vq->vq_ring.used, sizeof(vq->vq_ring.used));
 
-	VRING_INVALIDATE(&vq->vq_ring.avail, sizeof(vq->vq_ring.avail));
-	VRING_INVALIDATE(&vq->vq_ring.used, sizeof(vq->vq_ring.used));
+		metal_log(METAL_LOG_EMERGENCY,
+			  "VQ: %s - size=%d; free=%d; queued=%d; desc_head_idx=%d; "
+			  "available_idx=%d; avail.idx=%d; used_cons_idx=%d; "
+			  "used.idx=%d; avail.flags=0x%x; used.flags=0x%x\r\n",
+			  vq->vq_name, vq->vq_nentries, vq->vq_free_cnt,
+			  vq->vq_queued_cnt, vq->vq_desc_head_idx, vq->vq_available_idx,
+			  vq->vq_ring.avail->idx, vq->vq_used_cons_idx,
+			  vq->vq_ring.used->idx, vq->vq_ring.avail->flags,
+			  vq->vq_ring.used->flags);
+	}
 
-	metal_log(METAL_LOG_EMERGENCY,
-		  "VQ: %s - size=%d; free=%d; queued=%d; desc_head_idx=%d; "
-		  "available_idx=%d; avail.idx=%d; used_cons_idx=%d; "
-		  "used.idx=%d; avail.flags=0x%x; used.flags=0x%x\r\n",
-		  vq->vq_name, vq->vq_nentries, vq->vq_free_cnt,
-		  vq->vq_queued_cnt, vq->vq_desc_head_idx, vq->vq_available_idx,
-		  vq->vq_ring.avail->idx, vq->vq_used_cons_idx,
-		  vq->vq_ring.used->idx, vq->vq_ring.avail->flags,
-		  vq->vq_ring.used->flags);
 }
 
 uint32_t virtqueue_get_desc_size(struct virtqueue *vq)
@@ -331,26 +331,24 @@ uint32_t virtqueue_get_desc_size(struct virtqueue *vq)
 	/* Avail.idx is updated by driver, invalidate it */
 	VRING_INVALIDATE(&vq->vq_ring.avail->idx, sizeof(vq->vq_ring.avail->idx));
 
-	if (vq->vq_available_idx == vq->vq_ring.avail->idx) {
-		return 0;
+	if (vq->vq_available_idx != vq->vq_ring.avail->idx) {
+		VQUEUE_BUSY(vq);
+
+		head_idx = vq->vq_available_idx & (vq->vq_nentries - 1);
+
+		/* Avail.ring is updated by driver, invalidate it */
+		VRING_INVALIDATE(&vq->vq_ring.avail->ring[head_idx],
+				 sizeof(vq->vq_ring.avail->ring[head_idx]));
+		avail_idx = vq->vq_ring.avail->ring[head_idx];
+
+		/* Invalidate the desc entry written by driver before accessing it */
+		VRING_INVALIDATE(&vq->vq_ring.desc[avail_idx].len,
+				 sizeof(vq->vq_ring.desc[avail_idx].len));
+
+		len = vq->vq_ring.desc[avail_idx].len;
+
+		VQUEUE_IDLE(vq);
 	}
-
-	VQUEUE_BUSY(vq);
-
-	head_idx = vq->vq_available_idx & (vq->vq_nentries - 1);
-
-	/* Avail.ring is updated by driver, invalidate it */
-	VRING_INVALIDATE(&vq->vq_ring.avail->ring[head_idx],
-			 sizeof(vq->vq_ring.avail->ring[head_idx]));
-	avail_idx = vq->vq_ring.avail->ring[head_idx];
-
-	/* Invalidate the desc entry written by driver before accessing it */
-	VRING_INVALIDATE(&vq->vq_ring.desc[avail_idx].len,
-			 sizeof(vq->vq_ring.desc[avail_idx].len));
-
-	len = vq->vq_ring.desc[avail_idx].len;
-
-	VQUEUE_IDLE(vq);
 
 	return len;
 }
@@ -563,6 +561,8 @@ static void vq_ring_update_avail(struct virtqueue *vq, uint16_t desc_idx)
  */
 static int vq_ring_enable_interrupt(struct virtqueue *vq, uint16_t ndesc)
 {
+	int ret = 0;
+
 	/*
 	 * Enable interrupts, making sure we get the latest index of
 	 * what's already been consumed.
@@ -601,17 +601,12 @@ static int vq_ring_enable_interrupt(struct virtqueue *vq, uint16_t ndesc)
 	 * entries.
 	 */
 	if (VIRTIO_ROLE_IS_DRIVER(vq->vq_dev)) {
-		if (virtqueue_nused(vq) > ndesc) {
-			return 1;
-		}
-	}
-	if (VIRTIO_ROLE_IS_DEVICE(vq->vq_dev)) {
-		if (virtqueue_navail(vq) > ndesc) {
-			return 1;
-		}
+		ret = virtqueue_nused(vq) > ndesc;
+	} else if (VIRTIO_ROLE_IS_DEVICE(vq->vq_dev)) {
+		ret = virtqueue_navail(vq) > ndesc;
 	}
 
-	return 0;
+	return ret;
 }
 
 /*
@@ -634,11 +629,11 @@ void virtqueue_notification(struct virtqueue *vq)
 static int vq_ring_must_notify(struct virtqueue *vq)
 {
 	uint16_t new_idx, prev_idx, event_idx;
+	int ret = 0;
 
 	if (vq->vq_dev->features & VIRTIO_RING_F_MUST_NOTIFY)
-		return 1;
-
-	if (vq->vq_dev->features & VIRTIO_RING_F_EVENT_IDX) {
+		ret = 1;
+	else if (vq->vq_dev->features & VIRTIO_RING_F_EVENT_IDX) {
 		if (VIRTIO_ROLE_IS_DRIVER(vq->vq_dev)) {
 			/* CACHE: no need to invalidate avail */
 			new_idx = vq->vq_ring.avail->idx;
@@ -646,8 +641,7 @@ static int vq_ring_must_notify(struct virtqueue *vq)
 			VRING_INVALIDATE(&vring_avail_event(&vq->vq_ring),
 					 sizeof(vring_avail_event(&vq->vq_ring)));
 			event_idx = vring_avail_event(&vq->vq_ring);
-			return vring_need_event(event_idx, new_idx,
-						prev_idx) != 0;
+			ret = vring_need_event(event_idx, new_idx, prev_idx) != 0;
 		}
 		if (VIRTIO_ROLE_IS_DEVICE(vq->vq_dev)) {
 			/* CACHE: no need to invalidate used */
@@ -656,25 +650,24 @@ static int vq_ring_must_notify(struct virtqueue *vq)
 			VRING_INVALIDATE(&vring_used_event(&vq->vq_ring),
 					 sizeof(vring_used_event(&vq->vq_ring)));
 			event_idx = vring_used_event(&vq->vq_ring);
-			return vring_need_event(event_idx, new_idx,
-						prev_idx) != 0;
+			ret = vring_need_event(event_idx, new_idx, prev_idx) != 0;
 		}
 	} else {
 		if (VIRTIO_ROLE_IS_DRIVER(vq->vq_dev)) {
 			VRING_INVALIDATE(&vq->vq_ring.used->flags,
 					 sizeof(vq->vq_ring.used->flags));
-			return (vq->vq_ring.used->flags &
-				VRING_USED_F_NO_NOTIFY) == 0;
+			ret = (vq->vq_ring.used->flags &
+			       VRING_USED_F_NO_NOTIFY) == 0;
 		}
 		if (VIRTIO_ROLE_IS_DEVICE(vq->vq_dev)) {
 			VRING_INVALIDATE(&vq->vq_ring.avail->flags,
 					 sizeof(vq->vq_ring.avail->flags));
-			return (vq->vq_ring.avail->flags &
-				VRING_AVAIL_F_NO_INTERRUPT) == 0;
+			ret = (vq->vq_ring.avail->flags &
+			       VRING_AVAIL_F_NO_INTERRUPT) == 0;
 		}
 	}
 
-	return 0;
+	return ret;
 }
 
 /*
