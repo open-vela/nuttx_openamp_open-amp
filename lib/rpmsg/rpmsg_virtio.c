@@ -51,12 +51,12 @@ metal_weak void *
 rpmsg_virtio_shm_pool_get_buffer(struct rpmsg_virtio_shm_pool *shpool,
 				 size_t size)
 {
-	void *buffer;
+	void *buffer = NULL;
 
-	if (!shpool || size == 0 || shpool->avail < size)
-		return NULL;
-	buffer = (char *)shpool->base + shpool->size - shpool->avail;
-	shpool->avail -= size;
+	if (shpool && size && shpool->avail >= size) {
+		buffer = (char *)shpool->base + shpool->size - shpool->avail;
+		shpool->avail -= size;
+	}
 
 	return buffer;
 }
@@ -65,11 +65,11 @@ rpmsg_virtio_shm_pool_get_buffer(struct rpmsg_virtio_shm_pool *shpool,
 void rpmsg_virtio_init_shm_pool(struct rpmsg_virtio_shm_pool *shpool,
 				void *shb, size_t size)
 {
-	if (!shpool || !shb || size == 0)
-		return;
-	shpool->base = shb;
-	shpool->size = size;
-	shpool->avail = size;
+	if (shpool && shb && size) {
+		shpool->base = shb;
+		shpool->size = size;
+		shpool->avail = size;
+	}
 }
 
 /**
@@ -124,6 +124,8 @@ static int rpmsg_virtio_enqueue_buffer(struct rpmsg_virtio_device *rvdev,
 				       void *buffer, uint32_t len,
 				       uint16_t idx)
 {
+	int ret = 0;
+
 	BUFFER_FLUSH(buffer, len);
 
 	if (VIRTIO_ROLE_IS_DRIVER(rvdev->vdev)) {
@@ -133,15 +135,15 @@ static int rpmsg_virtio_enqueue_buffer(struct rpmsg_virtio_device *rvdev,
 		/* Initialize buffer node */
 		vqbuf.buf = buffer;
 		vqbuf.len = len;
-		return virtqueue_add_buffer(rvdev->svq, &vqbuf, 1, 0, buffer);
+		ret = virtqueue_add_buffer(rvdev->svq, &vqbuf, 1, 0, buffer);
 	}
 
 	if (VIRTIO_ROLE_IS_DEVICE(rvdev->vdev)) {
 		(void)buffer;
-		return virtqueue_add_consumed_buffer(rvdev->svq, idx, len);
+		ret = virtqueue_add_consumed_buffer(rvdev->svq, idx, len);
 	}
 
-	return 0;
+	return ret;
 }
 
 /**
@@ -206,18 +208,20 @@ static int rpmsg_virtio_wait_remote_ready(struct virtio_device *vdev)
 	while (1) {
 		ret = virtio_get_status(vdev, &status);
 		if (ret)
-			return ret;
+			break;
 		/* Busy wait until the remote is ready */
 		if (status & VIRTIO_CONFIG_STATUS_NEEDS_RESET) {
 			ret = virtio_set_status(vdev, 0);
 			if (ret)
-				return ret;
+				break;
 			/* TODO notify remote processor */
 		} else if (status & VIRTIO_CONFIG_STATUS_DRIVER_OK) {
-			return 0;
+			break;
 		}
 		metal_yield();
 	}
+
+	return ret;
 }
 
 static void rpmsg_virtio_hold_rx_buffer(struct rpmsg_device *rdev, void *rxbuf)
@@ -248,13 +252,14 @@ static void rpmsg_virtio_release_rx_buffer(struct rpmsg_device *rdev,
 static int rpmsg_virtio_notify_wait(struct rpmsg_virtio_device *rvdev, struct virtqueue *vq)
 {
 	struct virtio_vring_info *vring_info;
+	int ret = RPMSG_EOPNOTSUPP;
 
 	vring_info = &rvdev->vdev->vrings_info[vq->vq_queue_index];
 
-	if (!rvdev->notify_wait_cb)
-		return RPMSG_EOPNOTSUPP;
+	if (rvdev->notify_wait_cb)
+		ret = rvdev->notify_wait_cb(&rvdev->rdev, vring_info->notifyid);
 
-	return rvdev->notify_wait_cb(&rvdev->rdev, vring_info->notifyid);
+	return ret;
 }
 
 static void *rpmsg_virtio_get_tx_payload_buffer(struct rpmsg_device *rdev,
@@ -414,25 +419,26 @@ static int rpmsg_virtio_send_offchannel_raw(struct rpmsg_device *rdev,
 	struct metal_io_region *io;
 	uint32_t buff_len;
 	void *buffer;
-	int status;
+	int status = RPMSG_ERR_NO_BUFF;
 
 	/* Get the associated remote device for channel. */
 	rvdev = metal_container_of(rdev, struct rpmsg_virtio_device, rdev);
 
 	/* Get the payload buffer. */
 	buffer = rpmsg_virtio_get_tx_payload_buffer(rdev, &buff_len, wait, priority);
-	if (!buffer)
-		return RPMSG_ERR_NO_BUFF;
+	if (buffer) {
+		/* Copy data to rpmsg buffer. */
+		if (len > (int)buff_len)
+			len = buff_len;
+		io = rvdev->shbuf_io;
+		status = metal_io_block_write(io, metal_io_virt_to_offset(io, buffer),
+					      data, len);
+		RPMSG_ASSERT(status == len, "failed to write buffer\r\n");
 
-	/* Copy data to rpmsg buffer. */
-	if (len > (int)buff_len)
-		len = buff_len;
-	io = rvdev->shbuf_io;
-	status = metal_io_block_write(io, metal_io_virt_to_offset(io, buffer),
-				      data, len);
-	RPMSG_ASSERT(status == len, "failed to write buffer\r\n");
+		status = rpmsg_virtio_send_offchannel_nocopy(rdev, src, dst, buffer, len);
+	}
 
-	return rpmsg_virtio_send_offchannel_nocopy(rdev, src, dst, buffer, len);
+	return status;
 }
 
 /**
@@ -548,82 +554,83 @@ static int rpmsg_virtio_ns_callback(struct rpmsg_endpoint *ept, void *data,
 	struct rpmsg_ns_msg ns_msg;
 	uint32_t dest;
 	bool ept_to_release;
+	int status = RPMSG_SUCCESS;
 
 	(void)ept;
 	(void)src;
 
-	if (len != sizeof(ns_msg))
-		/* Returns as the message is corrupted */
-		return RPMSG_SUCCESS;
+	if (len == sizeof(ns_msg)) {
+		/*
+		 * copy buffer to local ns_msg and release the rx buffer early to
+		 * improve the buffer utilization.
+		 */
+		metal_io_block_read(io, metal_io_virt_to_offset(io, data),
+				    &ns_msg, sizeof(ns_msg));
+		rpmsg_virtio_release_rx_buffer(rdev, data);
 
-	/*
-	 * copy buffer to local ns_msg and release the rx buffer early to
-	 * improve the buffer utilization.
-	 */
-	metal_io_block_read(io, metal_io_virt_to_offset(io, data),
-			    &ns_msg, sizeof(ns_msg));
-	rpmsg_virtio_release_rx_buffer(rdev, data);
+		dest = ns_msg.addr;
 
-	dest = ns_msg.addr;
+		/* check if a Ept has been locally registered */
+		metal_mutex_acquire(&rdev->lock);
+		_ept = rpmsg_get_endpoint(rdev, ns_msg.name, RPMSG_ADDR_ANY, dest);
 
-	/* check if a Ept has been locally registered */
-	metal_mutex_acquire(&rdev->lock);
-	_ept = rpmsg_get_endpoint(rdev, ns_msg.name, RPMSG_ADDR_ANY, dest);
+		/*
+		 * If ept-release callback is not implemented, ns_unbind_cb() can free the ept.
+		 * Test _ept->release_cb before calling ns_unbind_cb() callbacks.
+		 */
+		ept_to_release = _ept && _ept->release_cb;
 
-	/*
-	 * If ept-release callback is not implemented, ns_unbind_cb() can free the ept.
-	 * Test _ept->release_cb before calling ns_unbind_cb() callbacks.
-	 */
-	ept_to_release = _ept && _ept->release_cb;
-
-	if (ns_msg.flags == RPMSG_NS_DESTROY) {
-		if (_ept)
-			_ept->dest_addr = RPMSG_ADDR_ANY;
-		if (ept_to_release)
-			rpmsg_ept_incref(_ept);
-		metal_mutex_release(&rdev->lock);
-		if (_ept && _ept->ns_unbind_cb)
-			_ept->ns_unbind_cb(_ept);
-		if (rdev->ns_unbind_cb)
-			rdev->ns_unbind_cb(rdev, ns_msg.name, dest);
-		if (ept_to_release)
-			rpmsg_ept_decref(_ept);
-	} else if (ns_msg.flags == RPMSG_NS_CREATE) {
-		if (!_ept) {
-			/*
-			 * send callback to application, that can
-			 * - create the associated endpoints.
-			 * - store information for future use.
-			 * - just ignore the request as service not supported.
-			 */
+		if (ns_msg.flags == RPMSG_NS_DESTROY) {
+			if (_ept)
+				_ept->dest_addr = RPMSG_ADDR_ANY;
+			if (ept_to_release)
+				rpmsg_ept_incref(_ept);
 			metal_mutex_release(&rdev->lock);
-			if (rdev->ns_bind_cb)
-				rdev->ns_bind_cb(rdev, ns_msg.name, dest);
-		} else if (_ept->dest_addr == RPMSG_ADDR_ANY) {
-			_ept->dest_addr = dest;
-			metal_mutex_release(&rdev->lock);
-			if (_ept->name[0] && rdev->support_ack)
-				rpmsg_send_ns_message(_ept, RPMSG_NS_CREATE_ACK);
-			/* notify application that the endpoint has been bound */
-			if (_ept->ns_bound_cb)
-				_ept->ns_bound_cb(_ept);
+			if (_ept && _ept->ns_unbind_cb)
+				_ept->ns_unbind_cb(_ept);
+			if (rdev->ns_unbind_cb)
+				rdev->ns_unbind_cb(rdev, ns_msg.name, dest);
+			if (ept_to_release)
+				rpmsg_ept_decref(_ept);
+		} else if (ns_msg.flags == RPMSG_NS_CREATE) {
+			if (!_ept) {
+				/*
+				 * send callback to application, that can
+				 * - create the associated endpoints.
+				 * - store information for future use.
+				 * - just ignore the request as service not supported.
+				 */
+				metal_mutex_release(&rdev->lock);
+				if (rdev->ns_bind_cb)
+					rdev->ns_bind_cb(rdev, ns_msg.name, dest);
+			} else if (_ept->dest_addr == RPMSG_ADDR_ANY) {
+				_ept->dest_addr = dest;
+				metal_mutex_release(&rdev->lock);
+				if (_ept->name[0] && rdev->support_ack)
+					rpmsg_send_ns_message(_ept, RPMSG_NS_CREATE_ACK);
+				/* notify application that the endpoint has been bound */
+				if (_ept->ns_bound_cb)
+					_ept->ns_bound_cb(_ept);
+			}
+			else
+				metal_mutex_release(&rdev->lock);
+		} else { /* RPMSG_NS_CREATE_ACK */
+			/* save the received destination address */
+			if (_ept && _ept->dest_addr == RPMSG_ADDR_ANY) {
+				_ept->dest_addr = dest;
+				metal_mutex_release(&rdev->lock);
+				/* notify application that the endpoint has been bound */
+				if (_ept->ns_bound_cb)
+					_ept->ns_bound_cb(_ept);
+			}
+			else
+				metal_mutex_release(&rdev->lock);
 		}
-		else
-			metal_mutex_release(&rdev->lock);
-	} else { /* RPMSG_NS_CREATE_ACK */
-		/* save the received destination address */
-		if (_ept && _ept->dest_addr == RPMSG_ADDR_ANY) {
-			_ept->dest_addr = dest;
-			metal_mutex_release(&rdev->lock);
-			/* notify application that the endpoint has been bound */
-			if (_ept->ns_bound_cb)
-				_ept->ns_bound_cb(_ept);
-		}
-		else
-			metal_mutex_release(&rdev->lock);
+
+		status = RPMSG_SUCCESS_BUFFER_RELEASED;
 	}
 
-	return RPMSG_SUCCESS_BUFFER_RELEASED;
+	return status;
 }
 
 static int rpmsg_virtio_rvdev_init(struct rpmsg_virtio_device *rvdev,
@@ -705,9 +712,9 @@ static int rpmsg_virtio_rvdev_init(struct rpmsg_virtio_device *rvdev,
 		}
 
 		/*
-		* Suppress "tx-complete" interrupts
-		* since send method use busy loop when buffer pool exhaust
-		*/
+		 * Suppress "tx-complete" interrupts
+		 * since send method use busy loop when buffer pool exhaust
+		 */
 		virtqueue_disable_cb(rvdev->svq);
 
 		/* TODO: can have a virtio function to set the shared memory I/O */
@@ -782,34 +789,33 @@ static int rpmsg_virtio_rx_fill(struct rpmsg_virtio_device *rvdev,
 int rpmsg_virtio_get_tx_buffer_size(struct rpmsg_device *rdev)
 {
 	struct rpmsg_virtio_device *rvdev;
-	int size = 0;
+	int size = RPMSG_ERR_PARAM;
 
-	if (!rdev)
-		return RPMSG_ERR_PARAM;
+	if (rdev) {
+		metal_mutex_acquire(&rdev->lock);
+		rvdev = (struct rpmsg_virtio_device *)rdev;
 
-	metal_mutex_acquire(&rdev->lock);
-	rvdev = (struct rpmsg_virtio_device *)rdev;
+		if (VIRTIO_ROLE_IS_DRIVER(rvdev->vdev)) {
+			/*
+			 * If device role is host then buffers are provided by us,
+			 * so just provide the macro.
+			 */
+			size = rvdev->config.h2r_buf_size - sizeof(struct rpmsg_hdr);
+		}
 
-	if (VIRTIO_ROLE_IS_DRIVER(rvdev->vdev)) {
-		/*
-		 * If device role is host then buffers are provided by us,
-		 * so just provide the macro.
-		 */
-		size = rvdev->config.h2r_buf_size - sizeof(struct rpmsg_hdr);
+		if (VIRTIO_ROLE_IS_DEVICE(rvdev->vdev)) {
+			/*
+			 * If other core is host then buffers are provided by it,
+			 * so get the buffer size from the virtqueue.
+			 */
+			size = rvdev->config.r2h_buf_size - sizeof(struct rpmsg_hdr);
+		}
+
+		if (size <= 0)
+			size = RPMSG_ERR_NO_BUFF;
+
+		metal_mutex_release(&rdev->lock);
 	}
-
-	if (VIRTIO_ROLE_IS_DEVICE(rvdev->vdev)) {
-		/*
-		 * If other core is host then buffers are provided by it,
-		 * so get the buffer size from the virtqueue.
-		 */
-		size = rvdev->config.r2h_buf_size - sizeof(struct rpmsg_hdr);
-	}
-
-	if (size <= 0)
-		size = RPMSG_ERR_NO_BUFF;
-
-	metal_mutex_release(&rdev->lock);
 
 	return size;
 }
@@ -840,34 +846,33 @@ void *rpmsg_virtio_get_rx_buffer(struct rpmsg_virtio_device *rvdev,
 int rpmsg_virtio_get_rx_buffer_size(struct rpmsg_device *rdev)
 {
 	struct rpmsg_virtio_device *rvdev;
-	int size = 0;
+	int size = RPMSG_ERR_PARAM;
 
-	if (!rdev)
-		return RPMSG_ERR_PARAM;
+	if (rdev) {
+		metal_mutex_acquire(&rdev->lock);
+		rvdev = (struct rpmsg_virtio_device *)rdev;
 
-	metal_mutex_acquire(&rdev->lock);
-	rvdev = (struct rpmsg_virtio_device *)rdev;
+		if (VIRTIO_ROLE_IS_DRIVER(rvdev->vdev)) {
+			/*
+			 * If device role is host then buffers are provided by us,
+			 * so just provide the macro.
+			 */
+			size = rvdev->config.r2h_buf_size - sizeof(struct rpmsg_hdr);
+		}
 
-	if (VIRTIO_ROLE_IS_DRIVER(rvdev->vdev)) {
-		/*
-		 * If device role is host then buffers are provided by us,
-		 * so just provide the macro.
-		 */
-		size = rvdev->config.r2h_buf_size - sizeof(struct rpmsg_hdr);
+		if (VIRTIO_ROLE_IS_DEVICE(rvdev->vdev)) {
+			/*
+			 * If other core is host then buffers are provided by it,
+			 * so get the buffer size from the virtqueue.
+			 */
+			size = rvdev->config.h2r_buf_size - sizeof(struct rpmsg_hdr);
+		}
+
+		if (size <= 0)
+			size = RPMSG_ERR_NO_BUFF;
+
+		metal_mutex_release(&rdev->lock);
 	}
-
-	if (VIRTIO_ROLE_IS_DEVICE(rvdev->vdev)) {
-		/*
-		 * If other core is host then buffers are provided by it,
-		 * so get the buffer size from the virtqueue.
-		 */
-		size = rvdev->config.h2r_buf_size - sizeof(struct rpmsg_hdr);
-	}
-
-	if (size <= 0)
-		size = RPMSG_ERR_NO_BUFF;
-
-	metal_mutex_release(&rdev->lock);
 
 	return size;
 }
@@ -897,10 +902,7 @@ bool rpmsg_virtio_buf_held_dec_test(struct rpmsg_hdr *rp_hdr)
 	RPMSG_BUF_HELD_DEC(rp_hdr);
 
 	/* Check whether to release the buffer */
-	if (RPMSG_BUF_HELD_COUNTER(rp_hdr) > 0)
-		return false;
-
-	return true;
+	return RPMSG_BUF_HELD_COUNTER(rp_hdr) <= 0;
 }
 
 int rpmsg_init_vdev(struct rpmsg_virtio_device *rvdev,
@@ -920,65 +922,50 @@ int rpmsg_init_vdev_with_config(struct rpmsg_virtio_device *rvdev,
 				struct rpmsg_virtio_shm_pool *shpool,
 				const struct rpmsg_virtio_config *config)
 {
-	struct rpmsg_device *rdev = &rvdev->rdev;
-	int status;
+	int status = RPMSG_SUCCESS;
 
 	if (!rvdev || !vdev || !shm_io)
-		return RPMSG_ERR_PARAM;
-
-	if (VIRTIO_ROLE_IS_DRIVER(vdev)) {
-		/*
-		 * The virtio configuration contains only options applicable to
-		 * a virtio driver, implying rpmsg host role.
-		 */
-		if (config == NULL) {
-			return RPMSG_ERR_PARAM;
-		}
-		rvdev->config = *config;
-	}
-
-	if (VIRTIO_ROLE_IS_DEVICE(vdev)) {
-		/* wait synchro with the host */
+		status = RPMSG_ERR_PARAM;
+	else if (VIRTIO_ROLE_IS_DRIVER(vdev)) {
+		if (config)
+			rvdev->config = *config;
+		else
+			status = RPMSG_ERR_PARAM;
+	} else if (VIRTIO_ROLE_IS_DEVICE(vdev))
 		status = rpmsg_virtio_wait_remote_ready(vdev);
-		if (status)
-			return status;
-	}
 
-	status = rpmsg_virtio_rvdev_init(rvdev, vdev, ns_bind_cb, shm_io, config);
-	if (status)
-		return status;
+	if (!status)
+		status = rpmsg_virtio_rvdev_init(rvdev, vdev, ns_bind_cb, shm_io, config);
 
-	if (VIRTIO_ROLE_IS_DRIVER(vdev)) {
+	if (!status && VIRTIO_ROLE_IS_DRIVER(vdev))
 		status = rpmsg_virtio_rx_fill(rvdev, shm_io, shpool, config);
-		if (status)
-			goto err;
+
+	if (!status) {
+		struct rpmsg_device *rdev = &rvdev->rdev;
+
+		/* Initialize channels and endpoints list */
+		metal_list_init(&rdev->endpoints);
+
+		/*
+		 * Create name service announcement endpoint if device supports name
+		 * service announcement feature.
+		 */
+		if (rdev->support_ns || rdev->support_ack) {
+			rpmsg_register_endpoint(rdev, &rdev->ns_ept, "NS",
+						RPMSG_NS_EPT_ADDR, RPMSG_NS_EPT_ADDR,
+						rpmsg_virtio_ns_callback, NULL, rvdev);
+		}
+
+		if (VIRTIO_ROLE_IS_DRIVER(vdev))
+			status = virtio_set_status(vdev, VIRTIO_CONFIG_STATUS_DRIVER_OK);
 	}
 
-	/* Initialize channels and endpoints list */
-	metal_list_init(&rdev->endpoints);
-
-	/*
-	 * Create name service announcement endpoint if device supports name
-	 * service announcement feature.
-	 */
-	if (rdev->support_ns || rdev->support_ack) {
-		rpmsg_register_endpoint(rdev, &rdev->ns_ept, "NS",
-				     RPMSG_NS_EPT_ADDR, RPMSG_NS_EPT_ADDR,
-				     rpmsg_virtio_ns_callback, NULL, rvdev);
+	if (status) {
+		if (rvdev->shbuf)
+			virtio_free_buf(vdev, rvdev->shbuf);
+		virtio_delete_virtqueues(vdev);
 	}
 
-	if (VIRTIO_ROLE_IS_DRIVER(vdev)) {
-		status = virtio_set_status(vdev, VIRTIO_CONFIG_STATUS_DRIVER_OK);
-		if (status)
-			goto err;
-	}
-
-	return RPMSG_SUCCESS;
-
-err:
-	if (rvdev->shbuf)
-		virtio_free_buf(vdev, rvdev->shbuf);
-	virtio_delete_virtqueues(vdev);
 	return status;
 }
 
