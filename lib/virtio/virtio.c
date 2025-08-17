@@ -38,16 +38,57 @@ static const struct virtio_ident {
 	0, NULL}
 };
 
+static int virtio_create_virtqueues_default(struct virtio_device *vdev,
+					    unsigned int flags,
+					    unsigned int nvqs,
+					    const char *names[],
+					    vq_callback callbacks[],
+					    void *callback_args[])
+{
+	struct virtio_vring_info *vring_info;
+	struct vring_alloc_info *vring_alloc;
+	unsigned int i;
+	size_t offset;
+	int ret = 0;
+
+	metal_unused(flags);
+	metal_unused(callback_args);
+
+	/* Initialize virtqueue for each vring */
+	for (i = 0; i < nvqs; i++) {
+		vring_info = &vdev->vrings_info[i];
+		vring_alloc = &vring_info->info;
+
+		if (VIRTIO_ROLE_IS_DRIVER(vdev)) {
+			offset = metal_io_virt_to_offset(vring_info->io,
+							 vring_alloc->vaddr);
+			metal_io_block_set(vring_info->io, offset, 0,
+					   vring_size(vring_alloc->num_descs,
+						      vring_alloc->align));
+		}
+		ret = virtqueue_create(vdev, i, names[i], vring_alloc,
+				       callbacks[i], vdev->func->notify,
+				       vring_info->vq);
+		if (ret)
+			break;
+	}
+
+	return ret;
+}
+
 const char *virtio_dev_name(unsigned short devid)
 {
 	const struct virtio_ident *ident;
+	const char *name = NULL;
 
 	for (ident = virtio_ident_table; ident->name; ident++) {
-		if (ident->devid == devid)
-			return ident->name;
+		if (ident->devid == devid) {
+			name = ident->name;
+			break;
+		}
 	}
 
-	return NULL;
+	return name;
 }
 
 __deprecated void virtio_describe(struct virtio_device *dev, const char *msg,
@@ -63,44 +104,21 @@ int virtio_create_virtqueues(struct virtio_device *vdev, unsigned int flags,
 			     unsigned int nvqs, const char *names[],
 			     vq_callback callbacks[], void *callback_args[])
 {
-	struct virtio_vring_info *vring_info;
-	struct vring_alloc_info *vring_alloc;
-	unsigned int num_vrings, i;
-	int ret;
-	(void)flags;
+	int ret = -EINVAL;
 
-	if (!vdev)
-		return -EINVAL;
-
-	if (vdev->func && vdev->func->create_virtqueues) {
-		return vdev->func->create_virtqueues(vdev, flags, nvqs,
-						     names, callbacks, callback_args);
+	if (vdev) {
+		if (vdev->func && vdev->func->create_virtqueues)
+			ret =  vdev->func->create_virtqueues(vdev, flags, nvqs,
+							     names, callbacks,
+							     callback_args);
+		else if (nvqs > vdev->vrings_num)
+			ret = ERROR_VQUEUE_INVLD_PARAM;
+		else
+			ret = virtio_create_virtqueues_default(vdev, flags, nvqs,
+							       names, callbacks,
+							       callback_args);
 	}
 
-	num_vrings = vdev->vrings_num;
-	if (nvqs > num_vrings)
-		return ERROR_VQUEUE_INVLD_PARAM;
-	/* Initialize virtqueue for each vring */
-	for (i = 0; i < nvqs; i++) {
-		vring_info = &vdev->vrings_info[i];
-
-		vring_alloc = &vring_info->info;
-		if (VIRTIO_ROLE_IS_DRIVER(vdev)) {
-			size_t offset;
-			struct metal_io_region *io = vring_info->io;
-
-			offset = metal_io_virt_to_offset(io,
-							 vring_alloc->vaddr);
-			metal_io_block_set(io, offset, 0,
-					   vring_size(vring_alloc->num_descs,
-						      vring_alloc->align));
-		}
-		ret = virtqueue_create(vdev, i, names[i], vring_alloc,
-				       callbacks[i], vdev->func->notify,
-				       vring_info->vq);
-		if (ret)
-			return ret;
-	}
-	return 0;
+	return ret;
 }
 
