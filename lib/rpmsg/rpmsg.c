@@ -358,6 +358,9 @@ void rpmsg_register_endpoint(struct rpmsg_device *rdev,
 	ept->ns_unbind_cb = ns_unbind_cb;
 	ept->priv = priv;
 	ept->rdev = rdev;
+	if (ept->priority == RPMSG_PRIO_MIN)
+		ept->priority = RPMSG_PRIO_DEFAULT;
+
 	metal_list_add_tail(&rdev->endpoints, &ept->node);
 }
 
