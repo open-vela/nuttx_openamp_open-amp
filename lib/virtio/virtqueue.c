@@ -557,7 +557,7 @@ static void vq_ring_update_avail(struct virtqueue *vq, uint16_t desc_idx)
  */
 static int vq_ring_enable_interrupt(struct virtqueue *vq, uint16_t ndesc)
 {
-	int ret = 0;
+	bool ret = false;
 
 	/*
 	 * Enable interrupts, making sure we get the latest index of
@@ -602,7 +602,7 @@ static int vq_ring_enable_interrupt(struct virtqueue *vq, uint16_t ndesc)
 		ret = virtqueue_navail(vq) > ndesc;
 	}
 
-	return ret;
+	return (int)ret;
 }
 
 /*
@@ -625,10 +625,10 @@ void virtqueue_notification(struct virtqueue *vq)
 static int vq_ring_must_notify(struct virtqueue *vq)
 {
 	uint16_t new_idx, prev_idx, event_idx;
-	int ret = 0;
+	bool ret = false;
 
 	if (vq->vq_dev->features & VIRTIO_RING_F_MUST_NOTIFY)
-		ret = 1;
+		ret = true;
 	else if (vq->vq_dev->features & VIRTIO_RING_F_EVENT_IDX) {
 		if (VIRTIO_ROLE_IS_DRIVER(vq->vq_dev)) {
 			/* CACHE: no need to invalidate avail */
@@ -663,7 +663,7 @@ static int vq_ring_must_notify(struct virtqueue *vq)
 		}
 	}
 
-	return ret;
+	return (int)ret;
 }
 
 /*
