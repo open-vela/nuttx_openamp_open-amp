@@ -11,31 +11,9 @@
  * TODO :
  * This structure may change depending on the types of devices we support.
  */
-static const struct virtio_ident {
-	unsigned short devid;
+struct virtio_ident {
+	uint32_t devid;
 	const char *name;
-} virtio_ident_table[] = {
-	{
-	VIRTIO_ID_NETWORK, "Network"}, {
-	VIRTIO_ID_BLOCK, "Block"}, {
-	VIRTIO_ID_CONSOLE, "Console"}, {
-	VIRTIO_ID_ENTROPY, "Entropy"}, {
-	VIRTIO_ID_BALLOON, "Balloon"}, {
-	VIRTIO_ID_IOMEMORY, "IOMemory"}, {
-	VIRTIO_ID_SCSI, "SCSI"}, {
-	VIRTIO_ID_9P, "9P Transport"}, {
-	VIRTIO_ID_MAC80211_WLAN, "MAC80211 WLAN"}, {
-	VIRTIO_ID_RPROC_SERIAL, "Remoteproc Serial"}, {
-	VIRTIO_ID_GPU, "GPU"}, {
-	VIRTIO_ID_INPUT, "Input"}, {
-	VIRTIO_ID_VSOCK, "Vsock Transport"}, {
-	VIRTIO_ID_SOUND, "Sound"}, {
-	VIRTIO_ID_FS, "File System"}, {
-	VIRTIO_ID_MAC80211_HWSIM, "MAC80211 HWSIM"}, {
-	VIRTIO_ID_I2C_ADAPTER, "I2C Adapter"}, {
-	VIRTIO_ID_BT, "Bluetooth"}, {
-	VIRTIO_ID_GPIO, "GPIO" }, {
-	0, NULL}
 };
 
 static int virtio_create_virtqueues_default(struct virtio_device *vdev,
@@ -76,8 +54,32 @@ static int virtio_create_virtqueues_default(struct virtio_device *vdev,
 	return ret;
 }
 
-const char *virtio_dev_name(unsigned short devid)
+const char *virtio_dev_name(uint32_t devid)
 {
+	static const struct virtio_ident virtio_ident_table[] = {
+		{
+		VIRTIO_ID_NETWORK, "Network"}, {
+		VIRTIO_ID_BLOCK, "Block"}, {
+		VIRTIO_ID_CONSOLE, "Console"}, {
+		VIRTIO_ID_ENTROPY, "Entropy"}, {
+		VIRTIO_ID_BALLOON, "Balloon"}, {
+		VIRTIO_ID_IOMEMORY, "IOMemory"}, {
+		VIRTIO_ID_SCSI, "SCSI"}, {
+		VIRTIO_ID_9P, "9P Transport"}, {
+		VIRTIO_ID_MAC80211_WLAN, "MAC80211 WLAN"}, {
+		VIRTIO_ID_RPROC_SERIAL, "Remoteproc Serial"}, {
+		VIRTIO_ID_GPU, "GPU"}, {
+		VIRTIO_ID_INPUT, "Input"}, {
+		VIRTIO_ID_VSOCK, "Vsock Transport"}, {
+		VIRTIO_ID_SOUND, "Sound"}, {
+		VIRTIO_ID_FS, "File System"}, {
+		VIRTIO_ID_MAC80211_HWSIM, "MAC80211 HWSIM"}, {
+		VIRTIO_ID_I2C_ADAPTER, "I2C Adapter"}, {
+		VIRTIO_ID_BT, "Bluetooth"}, {
+		VIRTIO_ID_GPIO, "GPIO" }, {
+		0UL, NULL}
+	};
+
 	const struct virtio_ident *ident;
 	const char *name = NULL;
 
