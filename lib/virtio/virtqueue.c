@@ -497,7 +497,7 @@ static void vq_ring_free_chain(struct virtqueue *vq, uint16_t desc_idx)
 static void vq_ring_init(struct virtqueue *vq, void *ring_mem, int alignment)
 {
 	struct vring *vr;
-	int size;
+	uint16_t size;
 
 	size = vq->vq_nentries;
 	vr = &vq->vq_ring;
@@ -506,10 +506,10 @@ static void vq_ring_init(struct virtqueue *vq, void *ring_mem, int alignment)
 
 	if (VIRTIO_ROLE_IS_DRIVER(vq->vq_dev)) {
 		struct vring_desc *desc = vr->desc;
-		int i;
+		uint16_t i;
 
-		for (i = 0; i < size - 1; i++)
-			desc[i].next = i + 1;
+		for (i = 0U; i < size - 1U; i++)
+			desc[i].next = i + 1U;
 		desc[i].next = VQ_RING_DESC_CHAIN_END;
 	}
 }
