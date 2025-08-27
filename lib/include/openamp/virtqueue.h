@@ -43,13 +43,13 @@ extern "C" {
 #define VQ_RING_DESC_CHAIN_END                         32768
 
 /* Support for indirect buffer descriptors. */
-#define VIRTIO_RING_F_INDIRECT_DESC    (1 << 28)
+#define VIRTIO_RING_F_INDIRECT_DESC    (1U << 28)
 
 /* Support to suppress interrupt until specific index is reached. */
-#define VIRTIO_RING_F_EVENT_IDX        (1 << 29)
+#define VIRTIO_RING_F_EVENT_IDX        (1U << 29)
 
 /* Support to can't suppress interrupt. */
-#define VIRTIO_RING_F_MUST_NOTIFY      (1 << 30)
+#define VIRTIO_RING_F_MUST_NOTIFY      (1U << 30)
 
 /* cache invalidation helpers */
 #define CACHE_FLUSH(x, s)		metal_cache_flush(x, s)
