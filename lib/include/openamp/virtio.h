@@ -226,7 +226,7 @@ struct virtio_device {
  *
  * @return pointer to the device name string if found, otherwise null.
  */
-const char *virtio_dev_name(uint16_t devid);
+const char *virtio_dev_name(uint32_t devid);
 
 __deprecated void virtio_describe(struct virtio_device *dev, const char *msg,
 				  uint64_t features,
