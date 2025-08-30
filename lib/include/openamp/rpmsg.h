@@ -235,20 +235,23 @@ static inline unsigned int is_rpmsg_ept_ready(struct rpmsg_endpoint *ept)
 static inline int rpmsg_send(struct rpmsg_endpoint *ept, const void *data,
 			     int len)
 {
+	int ret = RPMSG_ERR_PARAM;
 	int tc = 0;
 
-	if (!ept)
-		return RPMSG_ERR_PARAM;
+	if (ept) {
+		for (; tc < RPMSG_TICK_COUNT; tc += RPMSG_TICKS_PER_INTERVAL) {
+			if (is_rpmsg_ept_ready(ept)) {
+				ret = rpmsg_send_offchannel_raw(ept, ept->addr,
+								ept->dest_addr,
+								data, len, true);
+				break;
+			}
 
-	for (; tc < RPMSG_TICK_COUNT; tc += RPMSG_TICKS_PER_INTERVAL) {
-		if (is_rpmsg_ept_ready(ept))
-			return rpmsg_send_offchannel_raw(ept, ept->addr,
-							 ept->dest_addr,
-							 data, len, true);
-		metal_sleep_usec(RPMSG_TICKS_PER_INTERVAL);
+			metal_sleep_usec(RPMSG_TICKS_PER_INTERVAL);
+		}
 	}
 
-	return RPMSG_ERR_ADDR;
+	return ret;
 }
 
 /**
@@ -271,10 +274,13 @@ static inline int rpmsg_send(struct rpmsg_endpoint *ept, const void *data,
 static inline int rpmsg_sendto(struct rpmsg_endpoint *ept, const void *data,
 			       int len, uint32_t dst)
 {
-	if (!ept)
-		return RPMSG_ERR_PARAM;
+	int ret = RPMSG_ERR_PARAM;
 
-	return rpmsg_send_offchannel_raw(ept, ept->addr, dst, data, len, true);
+	if (ept)
+		ret = rpmsg_send_offchannel_raw(ept, ept->addr, dst, data,
+						len, true);
+
+	return ret;
 }
 
 /**
@@ -321,11 +327,14 @@ static inline int rpmsg_send_offchannel(struct rpmsg_endpoint *ept,
 static inline int rpmsg_trysend(struct rpmsg_endpoint *ept, const void *data,
 				int len)
 {
-	if (!ept)
-		return RPMSG_ERR_PARAM;
+	int ret = RPMSG_ERR_PARAM;
 
-	return rpmsg_send_offchannel_raw(ept, ept->addr, ept->dest_addr, data,
-					 len, false);
+	if (ept)
+		ret = rpmsg_send_offchannel_raw(ept, ept->addr,
+						ept->dest_addr, data, len,
+						false);
+
+	return ret;
 }
 
 /**
@@ -347,10 +356,13 @@ static inline int rpmsg_trysend(struct rpmsg_endpoint *ept, const void *data,
 static inline int rpmsg_trysendto(struct rpmsg_endpoint *ept, const void *data,
 				  int len, uint32_t dst)
 {
-	if (!ept)
-		return RPMSG_ERR_PARAM;
+	int ret = RPMSG_ERR_PARAM;
 
-	return rpmsg_send_offchannel_raw(ept, ept->addr, dst, data, len, false);
+	if (ept)
+		ret = rpmsg_send_offchannel_raw(ept, ept->addr, dst, data,
+						len, false);
+
+	return ret;
 }
 
 /**
@@ -547,10 +559,13 @@ int rpmsg_send_offchannel_nocopy(struct rpmsg_endpoint *ept, uint32_t src,
 static inline int rpmsg_sendto_nocopy(struct rpmsg_endpoint *ept,
 				      const void *data, int len, uint32_t dst)
 {
-	if (!ept)
-		return RPMSG_ERR_PARAM;
+	int ret = RPMSG_ERR_PARAM;
 
-	return rpmsg_send_offchannel_nocopy(ept, ept->addr, dst, data, len);
+	if (ept)
+		ret = rpmsg_send_offchannel_nocopy(ept, ept->addr, dst, data,
+						   len);
+
+	return ret;
 }
 
 /**
@@ -584,20 +599,23 @@ static inline int rpmsg_sendto_nocopy(struct rpmsg_endpoint *ept,
 static inline int rpmsg_send_nocopy(struct rpmsg_endpoint *ept,
 				    const void *data, int len)
 {
+	int ret = RPMSG_ERR_PARAM;
 	int tc = 0;
 
-	if (!ept)
-		return RPMSG_ERR_PARAM;
+	if (ept) {
+		for (; tc < RPMSG_TICK_COUNT; tc += RPMSG_TICKS_PER_INTERVAL) {
+			if (is_rpmsg_ept_ready(ept)) {
+				ret = rpmsg_send_offchannel_nocopy(ept, ept->addr,
+								   ept->dest_addr,
+								   data, len);
+				break;
+			}
 
-	for (; tc < RPMSG_TICK_COUNT; tc += RPMSG_TICKS_PER_INTERVAL) {
-		if (is_rpmsg_ept_ready(ept))
-			return rpmsg_send_offchannel_nocopy(ept, ept->addr,
-							    ept->dest_addr,
-							    data, len);
-		metal_sleep_usec(RPMSG_TICKS_PER_INTERVAL);
+			metal_sleep_usec(RPMSG_TICKS_PER_INTERVAL);
+		}
 	}
 
-	return RPMSG_ERR_ADDR;
+	return ret;
 }
 
 /**
