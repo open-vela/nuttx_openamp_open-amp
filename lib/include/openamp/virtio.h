@@ -319,10 +319,8 @@ int virtio_create_virtqueues(struct virtio_device *vdev, unsigned int flags,
  */
 static inline void virtio_delete_virtqueues(struct virtio_device *vdev)
 {
-	if (!vdev || !vdev->func || !vdev->func->delete_virtqueues)
-		return;
-
-	vdev->func->delete_virtqueues(vdev);
+	if (vdev && vdev->func && vdev->func->delete_virtqueues)
+		vdev->func->delete_virtqueues(vdev);
 }
 
 /**
@@ -334,9 +332,11 @@ static inline void virtio_delete_virtqueues(struct virtio_device *vdev)
  */
 static inline uint32_t virtio_get_devid(const struct virtio_device *vdev)
 {
-	if (!vdev)
-		return 0;
-	return vdev->id.device;
+	uint32_t devid = 0;
+
+	if (vdev)
+		devid = vdev->id.device;
+	return devid;
 }
 
 /**
@@ -349,14 +349,17 @@ static inline uint32_t virtio_get_devid(const struct virtio_device *vdev)
  */
 static inline int virtio_get_status(struct virtio_device *vdev, uint8_t *status)
 {
-	if (!vdev || !status)
-		return -EINVAL;
+	int ret = -EINVAL;
 
-	if (!vdev->func || !vdev->func->get_status)
-		return -ENXIO;
+	if (vdev && status) {
+		if (vdev->func && vdev->func->get_status) {
+			*status = vdev->func->get_status(vdev);
+			ret = 0;
+		} else
+			ret = -ENXIO;
+	}
 
-	*status = vdev->func->get_status(vdev);
-	return 0;
+	return ret;
 }
 
 /**
@@ -369,14 +372,17 @@ static inline int virtio_get_status(struct virtio_device *vdev, uint8_t *status)
  */
 static inline int virtio_set_status(struct virtio_device *vdev, uint8_t status)
 {
-	if (!vdev)
-		return -EINVAL;
+	int ret = -EINVAL;
 
-	if (!vdev->func || !vdev->func->set_status)
-		return -ENXIO;
+	if (vdev) {
+		if (vdev->func && vdev->func->set_status) {
+			vdev->func->set_status(vdev, status);
+			ret = 0;
+		} else
+			ret = -ENXIO;
+	}
 
-	vdev->func->set_status(vdev, status);
-	return 0;
+	return ret;
 }
 
 /**
@@ -392,14 +398,17 @@ static inline int virtio_set_status(struct virtio_device *vdev, uint8_t status)
 static inline int virtio_read_config(struct virtio_device *vdev,
 				     uint32_t offset, void *dst, int len)
 {
-	if (!vdev || !dst)
-		return -EINVAL;
+	int ret = -EINVAL;
 
-	if (!vdev->func || !vdev->func->read_config)
-		return -ENXIO;
+	if (vdev && dst) {
+		if (vdev->func && vdev->func->read_config) {
+			vdev->func->read_config(vdev, offset, dst, len);
+			ret = 0;
+		} else
+			ret = -ENXIO;
+	}
 
-	vdev->func->read_config(vdev, offset, dst, len);
-	return 0;
+	return ret;
 }
 
 /**
@@ -415,14 +424,17 @@ static inline int virtio_read_config(struct virtio_device *vdev,
 static inline int virtio_write_config(struct virtio_device *vdev,
 				      uint32_t offset, void *src, int len)
 {
-	if (!vdev || !src)
-		return -EINVAL;
+	int ret = -EINVAL;
 
-	if (!vdev->func || !vdev->func->write_config)
-		return -ENXIO;
+	if (vdev && src) {
+		if (vdev->func && vdev->func->write_config) {
+			vdev->func->write_config(vdev, offset, src, len);
+			ret = 0;
+		} else
+			ret = -ENXIO;
+	}
 
-	vdev->func->write_config(vdev, offset, src, len);
-	return 0;
+	return ret;
 }
 
 /**
@@ -437,17 +449,19 @@ static inline int virtio_write_config(struct virtio_device *vdev,
 static inline int virtio_get_features(struct virtio_device *vdev,
 				      uint64_t *features)
 {
-	if (!vdev || !features)
-		return -EINVAL;
+	int ret = -EINVAL;
 
-	if (!vdev->func || !vdev->func->get_features)
-		return -ENXIO;
+	if (vdev && features) {
+		if (vdev->func && vdev->func->get_features) {
+			*features = vdev->func->get_features(vdev);
+			if (VIRTIO_ROLE_IS_DEVICE(vdev))
+				vdev->features = *features;
+			ret = 0;
+		} else
+			ret = -ENXIO;
+	}
 
-	*features = vdev->func->get_features(vdev);
-	if (VIRTIO_ROLE_IS_DEVICE(vdev))
-		vdev->features = *features;
-
-	return 0;
+	return ret;
 }
 
 /**
@@ -461,14 +475,17 @@ static inline int virtio_get_features(struct virtio_device *vdev,
 static inline int virtio_set_features(struct virtio_device *vdev,
 				      uint64_t features)
 {
-	if (!vdev)
-		return -EINVAL;
+	int ret = -EINVAL;
 
-	if (!vdev->func || !vdev->func->set_features)
-		return -ENXIO;
+	if (vdev) {
+		if (vdev->func && vdev->func->set_features) {
+			vdev->func->set_features(vdev, features);
+			ret = 0;
+		} else
+			ret = -ENXIO;
+	}
 
-	vdev->func->set_features(vdev, features);
-	return 0;
+	return ret;
 }
 
 /**
@@ -484,16 +501,19 @@ static inline int virtio_negotiate_features(struct virtio_device *vdev,
 					    uint64_t features,
 					    uint64_t *final_features)
 {
-	if (!vdev)
-		return -EINVAL;
+	int ret = -EINVAL;
 
-	if (!vdev->func || !vdev->func->negotiate_features)
-		return -ENXIO;
+	if (vdev) {
+		if (vdev->func && vdev->func->negotiate_features) {
+			vdev->features = vdev->func->negotiate_features(vdev, features);
+			if (final_features)
+				*final_features = vdev->features;
+			ret = 0;
+		} else
+			ret = -ENXIO;
+	}
 
-	vdev->features = vdev->func->negotiate_features(vdev, features);
-	if (final_features)
-		*final_features = vdev->features;
-	return 0;
+	return ret;
 }
 
 /**
@@ -505,14 +525,17 @@ static inline int virtio_negotiate_features(struct virtio_device *vdev,
  */
 static inline int virtio_reset_device(struct virtio_device *vdev)
 {
-	if (!vdev)
-		return -EINVAL;
+	int ret = -EINVAL;
 
-	if (!vdev->func || !vdev->func->reset_device)
-		return -ENXIO;
+	if (vdev) {
+		if (vdev->func && vdev->func->reset_device) {
+			vdev->func->reset_device(vdev);
+			ret = 0;
+		} else
+			ret = -ENXIO;
+	}
 
-	vdev->func->reset_device(vdev);
-	return 0;
+	return ret;
 }
 
 /**
@@ -528,17 +551,20 @@ static inline int virtio_reset_device(struct virtio_device *vdev)
 static inline int virtio_alloc_buf(struct virtio_device *vdev, void **buf,
 				   size_t size, size_t align)
 {
-	if (!vdev || !buf)
-		return -EINVAL;
+	int ret = -EINVAL;
 
-	if (!vdev->mmops || !vdev->mmops->alloc)
-		return -ENXIO;
+	if (vdev && buf) {
+		if (vdev->mmops && vdev->mmops->alloc) {
+			*buf = vdev->mmops->alloc(vdev, size, align);
+			if (!*buf)
+				ret = -ENOMEM;
+			else
+				ret = 0;
+		} else
+			ret = -ENXIO;
+	}
 
-	*buf = vdev->mmops->alloc(vdev, size, align);
-	if (!*buf)
-		return -ENOMEM;
-
-	return 0;
+	return ret;
 }
 
 /**
@@ -552,15 +578,17 @@ static inline int virtio_alloc_buf(struct virtio_device *vdev, void **buf,
  */
 static inline int virtio_free_buf(struct virtio_device *vdev, void *buf)
 {
-	if (!vdev)
-		return -EINVAL;
+	int ret = -EINVAL;
 
-	if (!vdev->mmops || !vdev->mmops->free)
-		return -ENXIO;
+	if (vdev) {
+		if (vdev->mmops && vdev->mmops->free) {
+			vdev->mmops->free(vdev, buf);
+			ret = 0;
+		} else
+			ret = -ENXIO;
+	}
 
-	vdev->mmops->free(vdev, buf);
-
-	return 0;
+	return ret;
 }
 
 #if defined __cplusplus
