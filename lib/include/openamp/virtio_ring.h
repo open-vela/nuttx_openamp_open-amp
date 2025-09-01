@@ -10,6 +10,7 @@
 #define	VIRTIO_RING_H
 
 #include <metal/compiler.h>
+#include <stddef.h>
 
 #if defined __cplusplus
 extern "C" {
@@ -195,9 +196,9 @@ struct vring {
 #define vring_used_event(vr)	((vr)->avail->ring[(vr)->num])
 #define vring_avail_event(vr)	((vr)->used->ring[(vr)->num].u.event)
 
-static inline int vring_size(unsigned int num, unsigned long align)
+static inline size_t vring_size(unsigned int num, unsigned long align)
 {
-	int size;
+	size_t size;
 
 	size = num * sizeof(struct vring_desc);
 	size += sizeof(struct vring_avail) + (num * sizeof(uint16_t)) +
