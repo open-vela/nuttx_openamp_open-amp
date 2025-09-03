@@ -553,7 +553,7 @@ static int rpmsg_virtio_ns_callback(struct rpmsg_endpoint *ept, void *data,
 							       rdev);
 	struct metal_io_region *io = rvdev->shbuf_io;
 	struct rpmsg_endpoint *_ept;
-	struct rpmsg_ns_msg ns_msg;
+	struct rpmsg_ns_msg ns_msg = {0};
 	uint32_t dest;
 	bool ept_to_release;
 	int status = RPMSG_SUCCESS;
@@ -643,7 +643,7 @@ static int rpmsg_virtio_rvdev_init(struct rpmsg_virtio_device *rvdev,
 {
 	const char *vq_names[RPMSG_NUM_VRINGS];
 	vq_callback callback[RPMSG_NUM_VRINGS];
-	struct fw_rsc_config fw_config;
+	struct fw_rsc_config fw_config = {0};
 	struct rpmsg_device *rdev;
 	uint64_t features;
 	unsigned int i;
