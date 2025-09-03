@@ -269,6 +269,7 @@ static void *rpmsg_virtio_get_tx_payload_buffer(struct rpmsg_device *rdev,
 	struct rpmsg_virtio_device *rvdev;
 	struct rpmsg_hdr *rp_hdr;
 	uint16_t idx;
+	void *data = NULL;
 	int tick_count;
 	int status;
 
@@ -305,18 +306,19 @@ static void *rpmsg_virtio_get_tx_payload_buffer(struct rpmsg_device *rdev,
 
 	metal_assert(!wait || rp_hdr != NULL);
 
-	if (!rp_hdr)
-		return NULL;
+	if (rp_hdr) {
+		/* Store the index into the reserved field to be used when sending */
+		rp_hdr->reserved = idx;
 
-	/* Store the index into the reserved field to be used when sending */
-	rp_hdr->reserved = idx;
+		/* Increase the held counter to hold this Tx buffer */
+		RPMSG_BUF_HELD_INC(rp_hdr);
 
-	/* Increase the held counter to hold this Tx buffer */
-	RPMSG_BUF_HELD_INC(rp_hdr);
+		/* Actual data buffer size is vring buffer size minus header length */
+		*len -= sizeof(struct rpmsg_hdr);
+		data = RPMSG_LOCATE_DATA(rp_hdr);
+	}
 
-	/* Actual data buffer size is vring buffer size minus header length */
-	*len -= sizeof(struct rpmsg_hdr);
-	return RPMSG_LOCATE_DATA(rp_hdr);
+	return data;
 }
 
 static int rpmsg_virtio_send_offchannel_nocopy(struct rpmsg_device *rdev,
