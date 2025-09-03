@@ -55,17 +55,15 @@ extern "C" {
 	((struct rpmsg_hdr *)((unsigned char *)(p) - sizeof(struct rpmsg_hdr)))
 #define RPMSG_LOCATE_DATA(p) ((unsigned char *)(p) + sizeof(struct rpmsg_hdr))
 
-/**
- * @brief dynamic name service announcement flags
- */
-enum rpmsg_ns_flags {
-	/** A new remote service was just created */
-	RPMSG_NS_CREATE = 0,
-	/** A known remote service was just destroyed */
-	RPMSG_NS_DESTROY = 1,
-	/** Aknowledge the previous creation message*/
-	RPMSG_NS_CREATE_ACK = 2,
-};
+/* Dynamic name service announcement flags */
+/* A new remote service was just created */
+#define RPMSG_NS_CREATE     0U
+
+/* A known remote service was just destroyed */
+#define RPMSG_NS_DESTROY    1U
+
+/* Aknowledge the previous creation message*/
+#define RPMSG_NS_CREATE_ACK 2U
 
 /**
  * @brief Common header for all RPMsg messages
