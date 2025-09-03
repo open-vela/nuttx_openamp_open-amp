@@ -41,14 +41,14 @@ extern "C" {
 
 /* Increase buffer held counter */
 #define RPMSG_BUF_HELD_INC(rp_hdr)              \
-	((rp_hdr)->reserved += 1 << RPMSG_BUF_HELD_SHIFT)
+	((rp_hdr)->reserved += 1U << RPMSG_BUF_HELD_SHIFT)
 
 /* Decrease buffer held counter */
 #define RPMSG_BUF_HELD_DEC(rp_hdr)              \
-	((rp_hdr)->reserved -= 1 << RPMSG_BUF_HELD_SHIFT)
+	((rp_hdr)->reserved -= 1U << RPMSG_BUF_HELD_SHIFT)
 
 /* Get the buffer index */
-#define RPMSG_BUF_INDEX(rphdr)                  \
+#define RPMSG_BUF_INDEX(rp_hdr)                  \
 	((uint16_t)((rp_hdr)->reserved & ~RPMSG_BUF_HELD_MASK))
 
 #define RPMSG_LOCATE_HDR(p) \
