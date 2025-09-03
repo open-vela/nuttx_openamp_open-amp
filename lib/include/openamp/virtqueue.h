@@ -72,7 +72,7 @@ struct virtqueue_buf {
 	void *buf;
 
 	/** Size of the buffer. */
-	int len;
+	uint32_t len;
 };
 
 /** @brief Vring descriptor extra information for buffer list management. */
