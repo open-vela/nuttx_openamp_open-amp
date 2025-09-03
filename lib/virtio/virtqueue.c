@@ -63,13 +63,13 @@ int virtqueue_add_buffer(struct virtqueue *vq, struct virtqueue_buf *buf_list,
 	struct vq_desc_extra *dxp = NULL;
 	int status = VQUEUE_SUCCESS;
 	uint16_t head_idx;
+	uint16_t needed;
 	uint16_t idx;
-	int needed;
 
-	needed = readable + writable;
+	needed = (uint16_t)(readable + writable);
 
 	VQ_PARAM_CHK(vq == NULL, status, ERROR_VQUEUE_INVLD_PARAM);
-	VQ_PARAM_CHK(needed < 1, status, ERROR_VQUEUE_INVLD_PARAM);
+	VQ_PARAM_CHK(needed < 1U, status, ERROR_VQUEUE_INVLD_PARAM);
 	VQ_PARAM_CHK(vq->vq_free_cnt < needed, status, ERROR_VRING_FULL);
 
 	VQUEUE_BUSY(vq);
