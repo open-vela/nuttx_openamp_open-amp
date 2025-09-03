@@ -336,7 +336,7 @@ static int rpmsg_virtio_send_offchannel_nocopy(struct rpmsg_device *rdev,
 
 	hdr = RPMSG_LOCATE_HDR(data);
 	/* The reserved field contains buffer index */
-	idx = hdr->reserved;
+	idx = RPMSG_BUF_INDEX(hdr);
 
 	/* Initialize RPMSG header. */
 	rp_hdr.dst = dst;
@@ -895,14 +895,14 @@ bool rpmsg_virtio_release_rx_buffer_nolock(struct rpmsg_virtio_device *rvdev,
 bool rpmsg_virtio_buf_held_dec_test(struct rpmsg_hdr *rp_hdr)
 {
 	/* Check the held counter first */
-	RPMSG_ASSERT(RPMSG_BUF_HELD_COUNTER(rp_hdr) > 0,
+	RPMSG_ASSERT(RPMSG_BUF_HELD_COUNTER(rp_hdr) > 0U,
 		     "unexpected buffer held counter\r\n");
 
 	/* Decrease the held counter */
 	RPMSG_BUF_HELD_DEC(rp_hdr);
 
 	/* Check whether to release the buffer */
-	return RPMSG_BUF_HELD_COUNTER(rp_hdr) <= 0;
+	return RPMSG_BUF_HELD_COUNTER(rp_hdr) <= 0U;
 }
 
 int rpmsg_init_vdev(struct rpmsg_virtio_device *rvdev,
