@@ -17,22 +17,22 @@ extern "C" {
 #endif
 
 /* This marks a buffer as continuing via the next field. */
-#define VRING_DESC_F_NEXT       1
+#define VRING_DESC_F_NEXT       1U
 /* This marks a buffer as write-only (otherwise read-only). */
-#define VRING_DESC_F_WRITE      2
+#define VRING_DESC_F_WRITE      2U
 /* This means the buffer contains a list of buffer descriptors. */
-#define VRING_DESC_F_INDIRECT   4
+#define VRING_DESC_F_INDIRECT   4U
 
 /* The Host uses this in used->flags to advise the Guest: don't kick me
  * when you add a buffer.  It's unreliable, so it's simply an
  * optimization.  Guest will still kick if it's out of buffers.
  */
-#define VRING_USED_F_NO_NOTIFY  1
+#define VRING_USED_F_NO_NOTIFY  1U
 /* The Guest uses this in avail->flags to advise the Host: don't
  * interrupt me when you consume a buffer.  It's unreliable, so it's
  * simply an optimization.
  */
-#define VRING_AVAIL_F_NO_INTERRUPT      1
+#define VRING_AVAIL_F_NO_INTERRUPT      1U
 
 /* Alignment requirements for vring elements.
  * When using pre-virtio 1.0 layout, these fall out naturally.
