@@ -343,15 +343,15 @@ static int rpmsg_virtio_send_offchannel_nocopy(struct rpmsg_device *rdev,
 	/* Initialize RPMSG header. */
 	rp_hdr.dst = dst;
 	rp_hdr.src = src;
-	rp_hdr.len = len;
+	rp_hdr.len = (uint16_t)len;
 	rp_hdr.reserved = 0;
 	rp_hdr.flags = 0;
 
 	/* Copy data to rpmsg buffer. */
 	io = rvdev->shbuf_io;
 	status = metal_io_block_write(io, metal_io_virt_to_offset(io, hdr),
-				      &rp_hdr, sizeof(rp_hdr));
-	RPMSG_ASSERT(status == sizeof(rp_hdr), "failed to write header\r\n");
+				      &rp_hdr, (int)sizeof(rp_hdr));
+	RPMSG_ASSERT(status == (int)sizeof(rp_hdr), "failed to write header\r\n");
 
 	metal_mutex_acquire(&rdev->lock);
 
@@ -431,7 +431,7 @@ static int rpmsg_virtio_send_offchannel_raw(struct rpmsg_device *rdev,
 	if (buffer) {
 		/* Copy data to rpmsg buffer. */
 		if (len > (int)buff_len)
-			len = buff_len;
+			len = (int)buff_len;
 		io = rvdev->shbuf_io;
 		status = metal_io_block_write(io, metal_io_virt_to_offset(io, buffer),
 					      data, len);
@@ -567,7 +567,7 @@ static int rpmsg_virtio_ns_callback(struct rpmsg_endpoint *ept, void *data,
 		 * improve the buffer utilization.
 		 */
 		metal_io_block_read(io, metal_io_virt_to_offset(io, data),
-				    &ns_msg, sizeof(ns_msg));
+				    &ns_msg, (int)sizeof(ns_msg));
 		rpmsg_virtio_release_rx_buffer(rdev, data);
 
 		dest = ns_msg.addr;
@@ -646,8 +646,8 @@ static int rpmsg_virtio_rvdev_init(struct rpmsg_virtio_device *rvdev,
 	struct fw_rsc_config fw_config = {0};
 	struct rpmsg_device *rdev;
 	uint64_t features;
-	unsigned int i;
 	int status;
+	int i;
 
 	rdev = &rvdev->rdev;
 	rvdev->notify_wait_cb = NULL;
@@ -667,10 +667,10 @@ static int rpmsg_virtio_rvdev_init(struct rpmsg_virtio_device *rvdev,
 
 	status = virtio_get_features(vdev, &features);
 	if (!status) {
-		rdev->support_ns = !!(features & (1 << VIRTIO_RPMSG_F_NS));
-		rdev->support_ack = !!(features & (1 << VIRTIO_RPMSG_F_ACK));
-		if (features & (1 << VIRTIO_RPMSG_F_BUFSZ)) {
-			virtio_read_config(rvdev->vdev, 0, &fw_config, sizeof(fw_config));
+		rdev->support_ns = !!(features & (1U << VIRTIO_RPMSG_F_NS));
+		rdev->support_ack = !!(features & (1U << VIRTIO_RPMSG_F_ACK));
+		if (features & (1U << VIRTIO_RPMSG_F_BUFSZ)) {
+			virtio_read_config(rvdev->vdev, 0, &fw_config, (int)sizeof(fw_config));
 			rvdev->config.h2r_buf_size = fw_config.h2r_buf_size;
 			rvdev->config.r2h_buf_size = fw_config.r2h_buf_size;
 		}
@@ -779,7 +779,7 @@ static int rpmsg_virtio_rx_fill(struct rpmsg_virtio_device *rvdev,
 
 			metal_io_block_set(shm_io, metal_io_virt_to_offset(shm_io,
 									   buffer),
-					   0x00, rvdev->config.r2h_buf_size);
+					   0x00, (int)rvdev->config.r2h_buf_size);
 			status = virtqueue_add_buffer(rvdev->rvq, &vqbuf, 0, 1,
 						      buffer);
 		}
@@ -802,7 +802,7 @@ int rpmsg_virtio_get_tx_buffer_size(struct rpmsg_device *rdev)
 			 * If device role is host then buffers are provided by us,
 			 * so just provide the macro.
 			 */
-			size = rvdev->config.h2r_buf_size - sizeof(struct rpmsg_hdr);
+			size = (int)(rvdev->config.h2r_buf_size - sizeof(struct rpmsg_hdr));
 		}
 
 		if (VIRTIO_ROLE_IS_DEVICE(rvdev->vdev)) {
@@ -810,7 +810,7 @@ int rpmsg_virtio_get_tx_buffer_size(struct rpmsg_device *rdev)
 			 * If other core is host then buffers are provided by it,
 			 * so get the buffer size from the virtqueue.
 			 */
-			size = rvdev->config.r2h_buf_size - sizeof(struct rpmsg_hdr);
+			size = (int)(rvdev->config.r2h_buf_size - sizeof(struct rpmsg_hdr));
 		}
 
 		if (size <= 0)
@@ -859,7 +859,7 @@ int rpmsg_virtio_get_rx_buffer_size(struct rpmsg_device *rdev)
 			 * If device role is host then buffers are provided by us,
 			 * so just provide the macro.
 			 */
-			size = rvdev->config.r2h_buf_size - sizeof(struct rpmsg_hdr);
+			size = (int)(rvdev->config.r2h_buf_size - sizeof(struct rpmsg_hdr));
 		}
 
 		if (VIRTIO_ROLE_IS_DEVICE(rvdev->vdev)) {
@@ -867,7 +867,7 @@ int rpmsg_virtio_get_rx_buffer_size(struct rpmsg_device *rdev)
 			 * If other core is host then buffers are provided by it,
 			 * so get the buffer size from the virtqueue.
 			 */
-			size = rvdev->config.h2r_buf_size - sizeof(struct rpmsg_hdr);
+			size = (int)(rvdev->config.h2r_buf_size - sizeof(struct rpmsg_hdr));
 		}
 
 		if (size <= 0)
