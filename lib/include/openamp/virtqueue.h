@@ -40,7 +40,7 @@ extern "C" {
  * in the descriptor table. This is used to verify we are correctly
  * handling vq_free_cnt.
  */
-#define VQ_RING_DESC_CHAIN_END                         32768
+#define VQ_RING_DESC_CHAIN_END                         32768U
 
 /* Support for indirect buffer descriptors. */
 #define VIRTIO_RING_F_INDIRECT_DESC    (1U << 28)
