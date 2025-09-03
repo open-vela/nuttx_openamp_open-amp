@@ -13,7 +13,7 @@
 #include <metal/alloc.h>
 
 /* Prototype for internal functions. */
-static void vq_ring_init(struct virtqueue *, void *, int);
+static void vq_ring_init(struct virtqueue *, void *, size_t);
 static void vq_ring_update_avail(struct virtqueue *, uint16_t);
 static uint16_t vq_ring_add_buffer(struct virtqueue *, struct vring_desc *,
 				   uint16_t, struct virtqueue_buf *, int, int);
@@ -494,7 +494,7 @@ static void vq_ring_free_chain(struct virtqueue *vq, uint16_t desc_idx)
  * vq_ring_init
  *
  */
-static void vq_ring_init(struct virtqueue *vq, void *ring_mem, int alignment)
+static void vq_ring_init(struct virtqueue *vq, void *ring_mem, size_t alignment)
 {
 	struct vring *vr;
 	uint16_t size;
