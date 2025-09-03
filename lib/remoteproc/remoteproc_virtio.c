@@ -420,9 +420,9 @@ int rproc_virtio_notified(struct virtio_device *vdev, uint32_t notifyid)
 		if (!vq)
 			continue;
 		if (vdev->role == VIRTIO_DEV_DRIVER)
-			notify = virtqueue_nused(vq) > 0;
+			notify = virtqueue_nused(vq) > 0U;
 		else
-			notify = virtqueue_navail(vq) > 0;
+			notify = virtqueue_navail(vq) > 0U;
 		if (notify && (vring_info->notifyid == notifyid ||
 		    notifyid == RSC_NOTIFY_ID_ANY)) {
 			virtqueue_notification(vq);

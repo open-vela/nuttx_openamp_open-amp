@@ -827,13 +827,13 @@ void *rpmsg_virtio_get_rx_buffer(struct rpmsg_virtio_device *rvdev,
 
 	if (VIRTIO_ROLE_IS_DRIVER(rvdev->vdev)) {
 		data = virtqueue_get_buffer(rvdev->rvq, len, idx);
-		*last = virtqueue_nused(rvdev->rvq) == 0;
+		*last = virtqueue_nused(rvdev->rvq) == 0U;
 	}
 
 	if (VIRTIO_ROLE_IS_DEVICE(rvdev->vdev)) {
 		data =
 		    virtqueue_get_available_buffer(rvdev->rvq, idx, len);
-		*last = virtqueue_navail(rvdev->rvq) == 0;
+		*last = virtqueue_navail(rvdev->rvq) == 0U;
 	}
 
 	/* Invalidate the buffer before returning it */

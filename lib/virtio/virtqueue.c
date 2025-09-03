@@ -358,7 +358,7 @@ uint32_t virtqueue_get_desc_size(struct virtqueue *vq)
  * virtqueue_nused
  *
  */
-int virtqueue_nused(struct virtqueue *vq)
+uint16_t virtqueue_nused(struct virtqueue *vq)
 {
 	uint16_t used_idx, nused;
 
@@ -377,7 +377,7 @@ int virtqueue_nused(struct virtqueue *vq)
  * virtqueue_navail
  *
  */
-int virtqueue_navail(struct virtqueue *vq)
+uint16_t virtqueue_navail(struct virtqueue *vq)
 {
 	uint16_t avail_idx, navail;
 
