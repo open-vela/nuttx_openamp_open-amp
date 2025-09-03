@@ -963,7 +963,7 @@ int rpmsg_init_vdev_with_config(struct rpmsg_virtio_device *rvdev,
 	}
 
 	if (status) {
-		if (rvdev->shbuf)
+		if (rvdev && rvdev->shbuf)
 			virtio_free_buf(vdev, rvdev->shbuf);
 		virtio_delete_virtqueues(vdev);
 	}
