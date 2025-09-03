@@ -165,7 +165,7 @@ void *virtqueue_get_buffer_addr(struct virtqueue *vq, uint16_t idx)
 
 	/* Invalidate the desc entry written by driver before accessing it */
 	VRING_INVALIDATE(&desc->addr, sizeof(desc->addr));
-	return virtqueue_phys_to_virt(vq, desc->addr);
+	return virtqueue_phys_to_virt(vq, (metal_phys_addr_t)desc->addr);
 }
 
 void virtqueue_free(struct virtqueue *vq)
@@ -420,7 +420,7 @@ static uint16_t vq_ring_add_buffer(struct virtqueue *vq,
 
 		/* CACHE: No need to invalidate desc because it is only written by driver */
 		dp = &desc[idx];
-		dp->addr = virtqueue_virt_to_phys(vq, buf_list[i].buf);
+		dp->addr = (uint64_t)virtqueue_virt_to_phys(vq, buf_list[i].buf);
 		dp->len = buf_list[i].len;
 		dp->flags = 0U;
 
