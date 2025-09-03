@@ -436,7 +436,7 @@ static inline int virtqueue_full(struct virtqueue *vq)
  *
  * @return Number of used buffers
  */
-int virtqueue_nused(struct virtqueue *vq);
+uint16_t virtqueue_nused(struct virtqueue *vq);
 
 /**
  * @brief Get number of available buffers in virtqueue
@@ -445,7 +445,7 @@ int virtqueue_nused(struct virtqueue *vq);
  *
  * @return Number of available buffers
  */
-int virtqueue_navail(struct virtqueue *vq);
+uint16_t virtqueue_navail(struct virtqueue *vq);
 
 #if defined __cplusplus
 }
