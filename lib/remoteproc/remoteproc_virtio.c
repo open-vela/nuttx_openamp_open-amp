@@ -43,6 +43,7 @@ static int rproc_virtio_create_virtqueue(struct virtio_device *vdev,
 	struct virtio_vring_info *vring_info;
 	struct vring_alloc_info *vring_alloc;
 	struct remoteproc_virtio *rpvdev;
+	struct virtqueue *vq;
 	int ret;
 	(void)flags;
 
@@ -55,8 +56,8 @@ static int rproc_virtio_create_virtqueue(struct virtio_device *vdev,
 		return ERROR_VQUEUE_INVLD_PARAM;
 
 	/* Alloc the virtqueue and init it */
-	vring_info->vq = virtqueue_allocate(vring_alloc->num_descs);
-	if (!vring_info->vq)
+	vq = virtqueue_allocate(vring_alloc->num_descs);
+	if (!vq)
 		return ERROR_NO_MEM;
 
 	if (VIRTIO_ROLE_IS_DRIVER(vdev)) {
@@ -67,19 +68,22 @@ static int rproc_virtio_create_virtqueue(struct virtio_device *vdev,
 	}
 
 	ret = virtqueue_create(vdev, idx, name, vring_alloc, callback,
-			       vdev->func->notify, vring_info->vq);
-	if (ret)
+			       vdev->func->notify, vq);
+	if (ret) {
+		virtqueue_free(vq);
 		return ret;
+	}
 
 	/*
 	 * If vq->shm_io is uninitialized, init it here. Now only rpmsg device
 	 * init the shm_io specially instead of by transport layer.
 	 */
-	if (!vring_info->vq->shm_io) {
+	if (!vq->shm_io) {
 		rpvdev = metal_container_of(vdev, struct remoteproc_virtio, vdev);
-		virtqueue_set_shmem_io(vring_info->vq, rpvdev->shm_io);
+		virtqueue_set_shmem_io(vq, rpvdev->shm_io);
 	}
 
+	vring_info->vq = vq;
 	return 0;
 }
 
