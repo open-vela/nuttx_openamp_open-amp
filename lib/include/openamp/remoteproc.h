@@ -91,35 +91,35 @@ struct fw_rsc_hdr {
  * check the validity of an index before the lookup table is accessed, so
  * please update it as needed.
  */
-enum fw_resource_type {
-	/** carveout resource
-	 *
-	 *  Request for allocation of a physically contiguous memory region.
-	 */
-	RSC_CARVEOUT = 0,
-	/** device memory resource
-	 *
-	 *  Request to iommu_map a memory-based peripheral.
-	 */
-	RSC_DEVMEM = 1,
-	/** trace resource
-	 *
-	 *  Announces the availability of a trace buffer into which the remote remoteproc will be
-	 *  writing logs.
-	 */
-	RSC_TRACE = 2,
-	/** virtio device resource
-	 *
-	 *  Declare support for a virtio device, and serve as its virtio header.
-	 */
-	RSC_VDEV = 3,
-	/** end of the generic resources */
-	RSC_LAST = 4,
-	/** Start of the vendor specific resource types range */
-	RSC_VENDOR_START = 128,
-	/** End of the vendor specific resource types range */
-	RSC_VENDOR_END = 512,
-};
+
+/** carveout resource
+ *
+ *  Request for allocation of a physically contiguous memory region.
+ */
+#define RSC_CARVEOUT            0U
+/** device memory resource
+ *
+ *  Request to iommu_map a memory-based peripheral.
+ */
+#define RSC_DEVMEM              1U
+/** trace resource
+ *
+ *  Announces the availability of a trace buffer into which the remote remoteproc will be
+ *  writing logs.
+ */
+#define RSC_TRACE               2U
+/** virtio device resource
+ *
+ *  Declare support for a virtio device, and serve as its virtio header.
+ */
+#define RSC_VDEV                3U
+/** end of the generic resources */
+#define RSC_LAST                4U
+/** Start of the vendor specific resource types range */
+#define RSC_VENDOR_START        128U
+/** End of the vendor specific resource types range */
+#define RSC_VENDOR_END          512U
+
 
 #define FW_RSC_U64_ADDR_ANY 0xFFFFFFFFFFFFFFFFUL
 #define FW_RSC_U32_ADDR_ANY 0xFFFFFFFFUL
@@ -563,24 +563,23 @@ static inline void *RPROC_ERR_PTR(long error)
 /**
  * @brief Remote processor states
  */
-enum remoteproc_state {
-	/** Remote is offline */
-	RPROC_OFFLINE		= 0,
-	/** Remote is configured */
-	RPROC_CONFIGURED	= 1,
-	/** Remote is ready to start */
-	RPROC_READY		= 2,
-	/** Remote is up and running */
-	RPROC_RUNNING		= 3,
-	/** Remote is suspended */
-	RPROC_SUSPENDED		= 4,
-	/** Remote is has error; need to recover */
-	RPROC_ERROR		= 5,
-	/** Remote is stopped */
-	RPROC_STOPPED		= 6,
-	/** Just keep this one at the end */
-	RPROC_LAST		= 7,
-};
+
+/** Remote is offline */
+#define RPROC_OFFLINE           0U
+/** Remote is configured */
+#define RPROC_CONFIGURED        1U
+/** Remote is ready to start */
+#define RPROC_READY             2U
+/** Remote is up and running */
+#define RPROC_RUNNING           3U
+/** Remote is suspended */
+#define RPROC_SUSPENDED         4U
+/** Remote is has error; need to recover */
+#define RPROC_ERROR             5U
+/** Remote is stopped */
+#define RPROC_STOPPED           6U
+/** Just keep this one at the end */
+#define RPROC_LAST              7U
 
 /**
  * @brief Initializes remoteproc resource.
