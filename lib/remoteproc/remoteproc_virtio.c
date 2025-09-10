@@ -231,7 +231,7 @@ static uint64_t rproc_virtio_negotiate_features(struct virtio_device *vdev,
 #endif
 
 static void rproc_virtio_read_config(struct virtio_device *vdev,
-				     uint32_t offset, void *dst, int length)
+				     uint32_t offset, void *dst, size_t length)
 {
 	struct remoteproc_virtio *rpvdev;
 	struct fw_rsc_vdev *vdev_rsc;
@@ -253,7 +253,7 @@ static void rproc_virtio_read_config(struct virtio_device *vdev,
 
 #if VIRTIO_ENABLED(VIRTIO_DRIVER_SUPPORT)
 static void rproc_virtio_write_config(struct virtio_device *vdev,
-				      uint32_t offset, void *src, int length)
+				      uint32_t offset, void *src, size_t length)
 {
 	struct remoteproc_virtio *rpvdev;
 	struct fw_rsc_vdev *vdev_rsc;
