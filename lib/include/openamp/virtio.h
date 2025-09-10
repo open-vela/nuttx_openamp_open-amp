@@ -274,14 +274,14 @@ struct virtio_dispatch {
 	 * configuration region.
 	 */
 	void (*read_config)(struct virtio_device *dev, uint32_t offset,
-			    void *dst, int length);
+			    void *dst, size_t length);
 
 	/**
 	 * Write a variable amount from the device specific (ie, network)
 	 * configuration region.
 	 */
 	void (*write_config)(struct virtio_device *dev, uint32_t offset,
-			     void *src, int length);
+			     void *src, size_t length);
 
 	/** Request a reset of the virtio device. */
 	void (*reset_device)(struct virtio_device *dev);
@@ -396,7 +396,7 @@ static inline int virtio_set_status(struct virtio_device *vdev, uint8_t status)
  * @return 0 on success, otherwise error code.
  */
 static inline int virtio_read_config(struct virtio_device *vdev,
-				     uint32_t offset, void *dst, int len)
+				     uint32_t offset, void *dst, size_t len)
 {
 	int ret = -EINVAL;
 
@@ -422,7 +422,7 @@ static inline int virtio_read_config(struct virtio_device *vdev,
  * @return 0 on success, otherwise error code.
  */
 static inline int virtio_write_config(struct virtio_device *vdev,
-				      uint32_t offset, void *src, int len)
+				      uint32_t offset, void *src, size_t len)
 {
 	int ret = -EINVAL;
 
