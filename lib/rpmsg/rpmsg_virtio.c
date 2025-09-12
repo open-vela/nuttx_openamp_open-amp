@@ -304,7 +304,7 @@ static void *rpmsg_virtio_get_tx_payload_buffer(struct rpmsg_device *rdev,
 		}
 	}
 
-	metal_assert(!wait || rp_hdr != NULL);
+	RPMSG_ASSERT(!wait || rp_hdr != NULL, "Get tx buffer timeout\r\n");
 
 	if (rp_hdr) {
 		/* Store the index into the reserved field to be used when sending */
