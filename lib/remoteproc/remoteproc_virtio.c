@@ -454,3 +454,8 @@ void rproc_virtio_wait_remote_ready(struct virtio_device *vdev)
 		metal_yield();
 	}
 }
+
+const struct virtio_dispatch *rproc_virtio_get_dispatch_funcs(void)
+{
+	return &remoteproc_virtio_dispatch_funcs;
+}

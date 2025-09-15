@@ -140,6 +140,13 @@ int rproc_virtio_notified(struct virtio_device *vdev, uint32_t notifyid);
  */
 void rproc_virtio_wait_remote_ready(struct virtio_device *vdev);
 
+/**
+ * @brief Get remoteproc virtio dispatch functions
+ *
+ * @return virtio dispatch struct pointer.
+ */
+const struct virtio_dispatch *rproc_virtio_get_dispatch_funcs(void);
+
 #if defined __cplusplus
 }
 #endif
