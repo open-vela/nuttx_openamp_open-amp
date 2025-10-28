@@ -32,10 +32,9 @@ static uint32_t rpmsg_get_address(unsigned long *bitmap, unsigned int start, int
 	unsigned int nextbit;
 
 	nextbit = metal_bitmap_next_clear_bit(bitmap, start, size);
-	if (nextbit < (uint32_t)size) {
-		addr = RPMSG_RESERVED_ADDRESSES + nextbit;
-		metal_bitmap_set_bit(bitmap, nextbit);
-	}
+	RPMSG_ASSERT(nextbit < (uint32_t)size, "addr bitmap full\r\n");
+	addr = RPMSG_RESERVED_ADDRESSES + nextbit;
+	metal_bitmap_set_bit(bitmap, nextbit);
 
 	return addr;
 }
