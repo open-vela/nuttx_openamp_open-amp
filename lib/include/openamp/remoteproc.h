@@ -386,9 +386,14 @@ struct fw_rsc_config {
 
 	uint8_t remote_cpuname[VIRTIO_RPMSG_CPUNAME_SIZE];
 
+	/** The rpmsg virtio device priority  */
+
+	uint8_t priority;
+
 	/* Reserve for the future use */
 
-	uint32_t reserved[6];
+	uint8_t reserved1[3];
+	uint32_t reserved2[5];
 
 	/** Put the customize config here */
 } METAL_PACKED_END;
