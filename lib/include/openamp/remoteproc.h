@@ -450,7 +450,10 @@ struct remoteproc {
 	struct metal_list vdevs;
 
 	/** Bitmap for notify IDs for remoteproc subdevices */
-	unsigned long bitmap;
+	unsigned long vdev_bitmap;
+
+	/** Bitmap for notify IDs for virtio device vrings */
+	unsigned long vring_bitmap;
 
 	/** Remoteproc operations */
 	const struct remoteproc_ops *ops;
@@ -831,13 +834,13 @@ int remoteproc_load_noblock(struct remoteproc *rproc,
 /**
  * @brief Allocate notifyid for resource
  *
- * @param rproc	Pointer to the remoteproc instance
- * @param start	Start of the id range
- * @param end	End of the id range
+ * @param bitmap	Pointer to the bitmap
+ * @param start		Start of the id range
+ * @param end		End of the id range
  *
  * @return Allocated notify id
  */
-unsigned int remoteproc_allocate_id(struct remoteproc *rproc,
+unsigned int remoteproc_allocate_id(unsigned long *bitmap,
 				    unsigned int start,
 				    unsigned int end);
 

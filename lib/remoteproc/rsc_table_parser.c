@@ -80,7 +80,7 @@ static int handle_vdev_rsc(struct remoteproc *rproc, void *rsc)
 
 	/* only assign notification IDs but do not initialize vdev */
 	notifyid = vdev_rsc->notifyid;
-	notifyid = remoteproc_allocate_id(rproc,
+	notifyid = remoteproc_allocate_id(&rproc->vdev_bitmap,
 					  notifyid,
 					  notifyid == RSC_NOTIFY_ID_ANY ?
 					  RSC_NOTIFY_ID_ANY : notifyid + 1);
@@ -93,7 +93,7 @@ static int handle_vdev_rsc(struct remoteproc *rproc, void *rsc)
 	for (i = 0; i < num_vrings; i++) {
 		vring_rsc = &vdev_rsc->vring[i];
 		notifyid = vring_rsc->notifyid;
-		notifyid = remoteproc_allocate_id(rproc,
+		notifyid = remoteproc_allocate_id(&rproc->vring_bitmap,
 						  notifyid,
 						  notifyid == RSC_NOTIFY_ID_ANY ?
 						  RSC_NOTIFY_ID_ANY : notifyid + 1);
@@ -108,9 +108,9 @@ static int handle_vdev_rsc(struct remoteproc *rproc, void *rsc)
 err:
 	for (i--; i >= 0; i--) {
 		vring_rsc = &vdev_rsc->vring[i];
-		metal_bitmap_clear_bit(&rproc->bitmap, vring_rsc->notifyid);
+		metal_bitmap_clear_bit(&rproc->vring_bitmap, vring_rsc->notifyid);
 	}
-	metal_bitmap_clear_bit(&rproc->bitmap, vdev_rsc->notifyid);
+	metal_bitmap_clear_bit(&rproc->vdev_bitmap, vdev_rsc->notifyid);
 
 	return -RPROC_ERR_RSC_TAB_NP;
 }

@@ -265,7 +265,8 @@ int remoteproc_stop(struct remoteproc *rproc)
 				ret = rproc->ops->stop(rproc);
 			if (!ret) {
 				rproc->state = RPROC_STOPPED;
-				rproc->bitmap = 0;
+				rproc->vdev_bitmap = 0;
+				rproc->vring_bitmap = 0;
 			}
 		} else {
 			ret = 0;
@@ -289,7 +290,8 @@ int remoteproc_shutdown(struct remoteproc *rproc)
 			}
 			if (!ret) {
 				rproc->state = RPROC_STOPPED;
-				rproc->bitmap = 0;
+				rproc->vdev_bitmap = 0;
+				rproc->vring_bitmap = 0;
 				if (rproc->ops->shutdown)
 					ret = rproc->ops->shutdown(rproc);
 				if (!ret) {
@@ -904,7 +906,7 @@ error1:
 	return ret;
 }
 
-unsigned int remoteproc_allocate_id(struct remoteproc *rproc,
+unsigned int remoteproc_allocate_id(unsigned long *bitmap,
 				    unsigned int start,
 				    unsigned int end)
 {
@@ -914,12 +916,11 @@ unsigned int remoteproc_allocate_id(struct remoteproc *rproc,
 		start = 0;
 	if (end == RSC_NOTIFY_ID_ANY)
 		end = METAL_BITS_PER_ULONG;
-	if ((start < (8U * sizeof(rproc->bitmap))) &&
-	    (end <= (8U * sizeof(rproc->bitmap)))) {
-		notifyid = metal_bitmap_next_clear_bit(&rproc->bitmap,
-						       start, end);
+	if ((start < (8U * sizeof(*bitmap))) &&
+	    (end <= (8U * sizeof(*bitmap)))) {
+		notifyid = metal_bitmap_next_clear_bit(bitmap, start, end);
 		if (notifyid != end)
-			metal_bitmap_set_bit(&rproc->bitmap, notifyid);
+			metal_bitmap_set_bit(bitmap, notifyid);
 		else
 			notifyid = RSC_NOTIFY_ID_ANY;
 	}
