@@ -27,7 +27,7 @@ extern "C" {
 
 /* Configurable parameters */
 #define RPMSG_NAME_SIZE			(32)
-#define RPMSG_ADDR_BMP_SIZE		(128)
+#define RPMSG_ADDR_BMP_SIZE		(256)
 
 #define RPMSG_NS_EPT_ADDR		(0x35)
 #define RPMSG_RESERVED_ADDRESSES	(1024)
