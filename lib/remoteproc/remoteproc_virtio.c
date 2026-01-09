@@ -414,9 +414,6 @@ int rproc_virtio_notified(struct virtio_device *vdev, uint32_t notifyid)
 
 	if (!vdev)
 		return -RPROC_EINVAL;
-	/* We do nothing for vdev notification in this implementation */
-	if (vdev->notifyid == notifyid)
-		return 0;
 	num_vrings = vdev->vrings_num;
 	for (i = 0; i < num_vrings; i++) {
 		vring_info = &vdev->vrings_info[i];
